@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ColumnType, ColumnTemplate } from '../types';
-import { generatePromptHelper } from '../services/geminiService';
+import { generatePromptHelper } from '../services/llmService';
 import { addTemplateToLibrary } from '../utils/fileStorage';
 import { 
   X, 

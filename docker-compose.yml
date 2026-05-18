@@ -14,6 +14,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=${PYTHONUNBUFFERED}
       - VITE_API_URL=${VITE_API_URL}
+      - VLLM_BASE_URL=${VLLM_BASE_URL}
+      - VLLM_API_KEY=${VLLM_API_KEY}
+      - VLLM_MODEL=${VLLM_MODEL}
+      - VLLM_TIMEOUT_SECONDS=${VLLM_TIMEOUT_SECONDS}
     networks:
       - tabular-review-network
 
@@ -22,6 +26,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_LLM_MODEL: ${VITE_LLM_MODEL}
+        VITE_LLM_TIMEOUT_MS: ${VITE_LLM_TIMEOUT_MS}
     container_name: tabular-review-frontend
     restart: unless-stopped
     depends_on:
@@ -30,7 +38,8 @@ services:
       - "3001:3000"
     environment:
       - VITE_API_URL=${VITE_API_URL}
-      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - VITE_LLM_MODEL=${VITE_LLM_MODEL}
+      - VITE_LLM_TIMEOUT_MS=${VITE_LLM_TIMEOUT_MS}
       - NODE_ENV=${NODE_ENV}
     networks:
       - tabular-review-network

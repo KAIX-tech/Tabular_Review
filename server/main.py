@@ -1,10 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from docling.document_converter import DocumentConverter
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
+import httpx
 import tempfile
 import os
 import shutil
@@ -56,6 +57,11 @@ def create_converter():
 
 converter = create_converter()
 
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://10.10.190.10:15006/v1").rstrip("/")
+VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
+VLLM_MODEL = os.getenv("VLLM_MODEL", "glm-5")
+VLLM_TIMEOUT_SECONDS = float(os.getenv("VLLM_TIMEOUT_SECONDS", "120"))
+
 @app.post("/convert")
 async def convert_document(file: UploadFile = File(...)):
     try:
@@ -82,6 +88,37 @@ async def convert_document(file: UploadFile = File(...)):
                 
     except Exception as e:
         print(f"Error converting file: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/llm/chat/completions")
+async def proxy_llm_chat_completions(request: Request):
+    try:
+        payload = await request.json()
+        payload["model"] = payload.get("model") or VLLM_MODEL
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {VLLM_API_KEY}",
+        }
+
+        async with httpx.AsyncClient(timeout=VLLM_TIMEOUT_SECONDS) as client:
+            upstream_response = await client.post(
+                f"{VLLM_BASE_URL}/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+
+        return Response(
+            content=upstream_response.content,
+            status_code=upstream_response.status_code,
+            media_type=upstream_response.headers.get("content-type", "application/json"),
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timed out while calling vLLM")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Failed to call vLLM: {str(e)}")
+    except Exception as e:
+        print(f"Error proxying LLM request: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

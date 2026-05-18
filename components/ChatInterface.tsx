@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Send, X, User } from 'lucide-react';
 import { ChatMessage, DocumentFile, Column, ExtractionResult } from '../types';
-import { analyzeDataWithChat } from '../services/geminiService';
+import { analyzeDataWithChat } from '../services/llmService';
 
 interface ChatInterfaceProps {
   documents: DocumentFile[];

@@ -3,13 +3,13 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![React](https://img.shields.io/badge/framework-React-61DAFB.svg)
-![AI](https://img.shields.io/badge/AI-Google%20Gemini-8E75B2.svg)
+![AI](https://img.shields.io/badge/AI-On--prem%20vLLM-8E75B2.svg)
 
 An AI-powered document review workspace that transforms unstructured legal contracts into structured, queryable datasets. Designed for legal professionals, auditors, and procurement teams to accelerate due diligence and contract analysis.
 
 ## 🚀 Features
 
-- **AI-Powered Extraction**: Automatically extract key clauses, dates, amounts, and entities from PDFs using Google Gemini 2.5 Pro / 3.0.
+- **AI-Powered Extraction**: Automatically extract key clauses, dates, amounts, and entities from PDFs using an on-prem vLLM OpenAI-compatible endpoint.
 - **High-Fidelity Conversion**: Uses **Docling** (running locally) to convert PDFs and DOCX files to clean Markdown text, preserving formatting and structure without hallucination.
 - **Dynamic Schema**: Define columns with natural language prompts (e.g., "What is the governing law?").
 - **Verification & Citations**: Click any extracted cell to view the exact source quote highlighted in the original document.
@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/b63026d8-3df6-48a8-bb4b-eb8f24d3a1ca
 ## 🛠 Tech Stack
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS
-- **AI Integration**: Google GenAI SDK (Gemini 2.5 Flash, 2.5 Pro, 3.0 Pro)
+- **AI Integration**: On-prem vLLM OpenAI-compatible chat completions API
 
 ## 📦 Getting Started
 
@@ -39,9 +39,28 @@ Install Node dependencies:
 pnpm install
 ```
 
-Create a `.env.local` file in the root directory for your Google API Key:
+Create a `.env.local` file in the root directory for the frontend:
 ```env
-VITE_GEMINI_API_KEY=your_google_api_key_here
+VITE_LLM_MODEL=glm-5
+VITE_LLM_TIMEOUT_MS=120000
+```
+
+The frontend calls the local FastAPI backend, and the backend proxies requests to vLLM. Configure the backend with:
+
+```env
+VLLM_BASE_URL=http://10.10.190.10:15006/v1
+VLLM_API_KEY=EMPTY
+VLLM_MODEL=glm-5
+VLLM_TIMEOUT_SECONDS=120
+```
+
+Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
+
+```bash
+vllm serve /path/to/glm-5 \
+  --host 0.0.0.0 \
+  --port 15006 \
+  --served-model-name glm-5
 ```
 
 ### 3. Setup Backend (Docling)
@@ -74,7 +93,7 @@ You can also run the application using Docker:
 1. **Setup environment**:
    ```bash
    cp .env.example .env
-   # Edit .env and add your Google Gemini API key
+   # Edit .env and configure your vLLM endpoint
    ```
 
 2. **Build and run with Docker**:
@@ -83,7 +102,7 @@ You can also run the application using Docker:
    ```
 
 3. **Access the application**:
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:3001
    - Backend API: http://localhost:8000/docs
 
 The Docker setup includes:

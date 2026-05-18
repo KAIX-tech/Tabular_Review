@@ -4,18 +4,16 @@ import { VerificationSidebar } from './components/VerificationSidebar';
 import { ChatInterface } from './components/ChatInterface';
 import { AddColumnMenu } from './components/AddColumnMenu';
 import { ColumnLibrary } from './components/ColumnLibrary';
-import { extractColumnData } from './services/geminiService';
+import { extractColumnData } from './services/llmService';
 import { processDocumentToMarkdown } from './services/documentProcessor';
 import { DocumentFile, Column, ExtractionResult, SidebarMode, ColumnType, SavedProject, ColumnTemplate } from './types';
-import { MessageSquare, Table, Square, FilePlus, LayoutTemplate, ChevronDown, Zap, Cpu, Brain, Trash2, Play, Download, WrapText, Loader2, Save, FolderOpen, RefreshCw } from './components/Icons';
+import { MessageSquare, Table, Square, FilePlus, LayoutTemplate, ChevronDown, Brain, Trash2, Play, Download, WrapText, Loader2, Save, FolderOpen, RefreshCw } from './components/Icons';
 import { SAMPLE_COLUMNS } from './utils/sampleData';
 import { saveProject, loadProject } from './utils/fileStorage';
 
 // Available Models
 const MODELS = [
-  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro', description: 'Deepest Reasoning', icon: Brain },
-  { id: 'gemini-2.5-pro-preview', name: 'Gemini 2.5 Pro', description: 'Balanced', icon: Cpu },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Fastest', icon: Zap },
+  { id: import.meta.env.VITE_LLM_MODEL || 'glm-5', name: 'GLM-5', description: 'On-prem vLLM', icon: Brain },
 ];
 
 const App: React.FC = () => {

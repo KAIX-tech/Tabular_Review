@@ -3,4 +3,4 @@ uvicorn
 python-multipart
 docling
 mlx_vlm
-
+httpx
