@@ -62,6 +62,12 @@ VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
 VLLM_MODEL = os.getenv("VLLM_MODEL", "glm-5")
 VLLM_TIMEOUT_SECONDS = float(os.getenv("VLLM_TIMEOUT_SECONDS", "120"))
 
+def vllm_headers():
+    headers = {"Content-Type": "application/json"}
+    if VLLM_API_KEY and VLLM_API_KEY.upper() != "EMPTY":
+        headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
+    return headers
+
 @app.post("/convert")
 async def convert_document(file: UploadFile = File(...)):
     try:
@@ -96,16 +102,11 @@ async def proxy_llm_chat_completions(request: Request):
         payload = await request.json()
         payload["model"] = payload.get("model") or VLLM_MODEL
 
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {VLLM_API_KEY}",
-        }
-
         async with httpx.AsyncClient(timeout=VLLM_TIMEOUT_SECONDS) as client:
             upstream_response = await client.post(
                 f"{VLLM_BASE_URL}/chat/completions",
                 json=payload,
-                headers=headers,
+                headers=vllm_headers(),
             )
 
         return Response(

@@ -54,6 +54,8 @@ VLLM_MODEL=glm-5
 VLLM_TIMEOUT_SECONDS=120
 ```
 
+Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--api-key`. In that case, the backend will not send an `Authorization` header upstream.
+
 Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
 
 ```bash
