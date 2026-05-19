@@ -52,6 +52,7 @@ VLLM_BASE_URL=http://10.10.190.10:15006/v1
 VLLM_API_KEY=EMPTY
 VLLM_MODEL=glm-5
 VLLM_TIMEOUT_SECONDS=120
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13001
 ```
 
 Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--api-key`. In that case, the backend will not send an `Authorization` header upstream.
@@ -104,8 +105,8 @@ You can also run the application using Docker:
    ```
 
 3. **Access the application**:
-   - Frontend: http://localhost:3001
-   - Backend API: http://localhost:8000/docs
+   - Frontend: http://localhost:13001
+   - Backend API: http://localhost:18001/docs
 
 The Docker setup includes:
 - **Frontend**: React app served by Node.js static server

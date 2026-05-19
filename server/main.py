@@ -13,13 +13,15 @@ import platform
 
 app = FastAPI()
 
+def parse_csv_env(name, default):
+    raw_value = os.getenv(name, default)
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
 # Configure CORS
-# In production, replace with specific origins
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:5173", # Vite default
-]
+origins = parse_csv_env(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13001",
+)
 
 app.add_middleware(
     CORSMiddleware,
