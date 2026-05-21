@@ -56,11 +56,15 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,h
 DOCLING_OCR_ENABLED=true
 DOCLING_OCR_FORCE_FULL_PAGE=false
 DOCLING_OCR_LANGS=eng,kor
+DOCLING_HF_DISABLE_SSL_VERIFY=true
+DOCLING_HF_TRUST_ENV=false
 ```
 
 Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--api-key`. In that case, the backend will not send an `Authorization` header upstream.
 
 Docling OCR uses Tesseract CLI in the backend Docker image. Set `DOCLING_OCR_FORCE_FULL_PAGE=true` for scanned PDFs that do not have a usable text layer; keep it `false` for faster hybrid parsing on searchable PDFs.
+
+Docling may download layout/table extraction models from Hugging Face Hub on first PDF conversion. Set `DOCLING_HF_DISABLE_SSL_VERIFY=true` only when an internal TLS proxy or self-signed certificate blocks those model downloads. Keep `DOCLING_HF_TRUST_ENV=false` unless those downloads must use proxy variables from the container environment.
 
 Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
 

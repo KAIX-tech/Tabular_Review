@@ -10,6 +10,7 @@ import tempfile
 import os
 import shutil
 import platform
+import warnings
 
 app = FastAPI()
 
@@ -33,6 +34,36 @@ VLLM_TIMEOUT_SECONDS = float(env_value("VLLM_TIMEOUT_SECONDS", "120"))
 DOCLING_OCR_ENABLED = parse_bool_env("DOCLING_OCR_ENABLED", True)
 DOCLING_OCR_FORCE_FULL_PAGE = parse_bool_env("DOCLING_OCR_FORCE_FULL_PAGE", False)
 DOCLING_OCR_LANGS = parse_csv_env("DOCLING_OCR_LANGS", "eng,kor")
+DOCLING_HF_DISABLE_SSL_VERIFY = parse_bool_env("DOCLING_HF_DISABLE_SSL_VERIFY", False)
+DOCLING_HF_TRUST_ENV = parse_bool_env("DOCLING_HF_TRUST_ENV", False)
+
+def configure_huggingface_ssl():
+    if not DOCLING_HF_DISABLE_SSL_VERIFY:
+        return
+
+    from huggingface_hub.utils._http import hf_request_event_hook, set_client_factory
+
+    def insecure_hf_client_factory():
+        warnings.warn(
+            "DOCLING_HF_DISABLE_SSL_VERIFY is enabled. "
+            "Hugging Face Hub downloads will skip TLS certificate verification.",
+            RuntimeWarning,
+        )
+        return httpx.Client(
+            verify=False,
+            trust_env=DOCLING_HF_TRUST_ENV,
+            event_hooks={"request": [hf_request_event_hook]},
+            follow_redirects=True,
+            timeout=None,
+        )
+
+    set_client_factory(insecure_hf_client_factory)
+    print(
+        "Hugging Face Hub SSL verification disabled for Docling model downloads "
+        f"(trust_env={DOCLING_HF_TRUST_ENV})"
+    )
+
+configure_huggingface_ssl()
 
 # Configure CORS
 origins = parse_csv_env(
