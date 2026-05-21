@@ -144,7 +144,8 @@ const App: React.FC = () => {
         setDocuments(prev => [...prev, ...processedFiles]);
     } catch (error) {
         console.error("Failed to process files:", error);
-        alert("Error processing some files. Please check if they are valid PDF or DOCX documents.");
+        const message = error instanceof Error ? error.message : "Please check if they are valid PDF or DOCX documents.";
+        alert(`Error processing some files.\n\n${message}`);
     } finally {
         setIsConverting(false);
     }

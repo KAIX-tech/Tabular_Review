@@ -1,6 +1,9 @@
 fastapi
 uvicorn
 python-multipart
+# Pin CPU-friendly wheels before installing Docling so Linux builds do not pull
+# the latest CUDA-heavy torch stack through transitive dependencies.
+torch==2.5.1
+torchvision==0.20.1
 docling
-mlx_vlm
 httpx

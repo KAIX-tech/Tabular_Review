@@ -13,7 +13,15 @@ export const processDocumentToMarkdown = async (file: File): Promise<string> => 
     });
 
     if (!response.ok) {
-      throw new Error(`Conversion failed: ${response.statusText}`);
+      let detail = response.statusText;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail || detail;
+      } catch {
+        const errorText = await response.text();
+        detail = errorText || detail;
+      }
+      throw new Error(`Conversion failed: ${detail}`);
     }
 
     const data = await response.json();
@@ -21,6 +29,7 @@ export const processDocumentToMarkdown = async (file: File): Promise<string> => 
 
   } catch (error) {
     console.error("Document Conversion failed:", error);
-    throw new Error(`Failed to convert ${file.name}. Is the backend server running?`);
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to convert ${file.name}: ${message}`);
   }
 };
