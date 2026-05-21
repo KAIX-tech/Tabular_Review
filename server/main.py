@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from docling.document_converter import DocumentConverter
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import PdfPipelineOptions, TesseractCliOcrOptions
 from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
@@ -14,8 +14,25 @@ import platform
 app = FastAPI()
 
 def parse_csv_env(name, default):
-    raw_value = os.getenv(name, default)
+    raw_value = os.getenv(name) or default
     return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+def parse_bool_env(name, default):
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+def env_value(name, default):
+    return os.getenv(name) or default
+
+VLLM_BASE_URL = env_value("VLLM_BASE_URL", "http://10.10.190.10:15006/v1").rstrip("/")
+VLLM_API_KEY = env_value("VLLM_API_KEY", "EMPTY")
+VLLM_MODEL = env_value("VLLM_MODEL", "glm-5")
+VLLM_TIMEOUT_SECONDS = float(env_value("VLLM_TIMEOUT_SECONDS", "120"))
+DOCLING_OCR_ENABLED = parse_bool_env("DOCLING_OCR_ENABLED", True)
+DOCLING_OCR_FORCE_FULL_PAGE = parse_bool_env("DOCLING_OCR_FORCE_FULL_PAGE", False)
+DOCLING_OCR_LANGS = parse_csv_env("DOCLING_OCR_LANGS", "eng,kor")
 
 # Configure CORS
 origins = parse_csv_env(
@@ -50,6 +67,19 @@ def create_converter():
     # Configure PDF pipeline with accelerator options
     pdf_pipeline_options = PdfPipelineOptions()
     pdf_pipeline_options.accelerator_options = accelerator_options
+    pdf_pipeline_options.do_ocr = DOCLING_OCR_ENABLED
+    if DOCLING_OCR_ENABLED:
+        print(
+            "Docling OCR enabled "
+            f"langs={DOCLING_OCR_LANGS} "
+            f"force_full_page={DOCLING_OCR_FORCE_FULL_PAGE}"
+        )
+        pdf_pipeline_options.ocr_options = TesseractCliOcrOptions(
+            lang=DOCLING_OCR_LANGS,
+            force_full_page_ocr=DOCLING_OCR_FORCE_FULL_PAGE,
+        )
+    else:
+        print("Docling OCR disabled")
     
     return DocumentConverter(
         format_options={
@@ -58,11 +88,6 @@ def create_converter():
     )
 
 converter = create_converter()
-
-VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://10.10.190.10:15006/v1").rstrip("/")
-VLLM_API_KEY = os.getenv("VLLM_API_KEY", "EMPTY")
-VLLM_MODEL = os.getenv("VLLM_MODEL", "glm-5")
-VLLM_TIMEOUT_SECONDS = float(os.getenv("VLLM_TIMEOUT_SECONDS", "120"))
 
 def vllm_headers():
     headers = {"Content-Type": "application/json"}
@@ -103,6 +128,7 @@ async def proxy_llm_chat_completions(request: Request):
     try:
         payload = await request.json()
         payload["model"] = payload.get("model") or VLLM_MODEL
+        print(f"Proxying LLM request to {VLLM_BASE_URL} with model={payload['model']}")
 
         async with httpx.AsyncClient(timeout=VLLM_TIMEOUT_SECONDS) as client:
             upstream_response = await client.post(
@@ -110,6 +136,16 @@ async def proxy_llm_chat_completions(request: Request):
                 json=payload,
                 headers=vllm_headers(),
             )
+
+        try:
+            upstream_payload = upstream_response.json()
+            print(
+                "vLLM response "
+                f"status={upstream_response.status_code} "
+                f"model={upstream_payload.get('model')}"
+            )
+        except Exception:
+            print(f"vLLM response status={upstream_response.status_code}")
 
         return Response(
             content=upstream_response.content,

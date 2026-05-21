@@ -1,4 +1,5 @@
 import { DocumentFile, ExtractionCell, Column, ExtractionResult } from "../types";
+import { getLlmProxyUrl } from "./apiConfig";
 
 type VllmRole = "system" | "user" | "assistant";
 
@@ -14,10 +15,11 @@ interface VllmChatOptions {
   responseFormat?: "text" | "json";
 }
 
-const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
-const llmProxyUrl = (import.meta.env.VITE_LLM_PROXY_URL || `${apiUrl}/llm/chat/completions`).replace(/\/$/, "");
+const llmProxyUrl = getLlmProxyUrl();
 const defaultModel = import.meta.env.VITE_LLM_MODEL || "glm-5";
 const llmTimeoutMs = Number(import.meta.env.VITE_LLM_TIMEOUT_MS || 120000);
+const modelIdentityInstruction =
+  "If asked about your model, provider, or identity, say you are the on-prem LLM configured for this Tabular Review deployment. Do not claim to be Claude, Gemini, ChatGPT, or any other hosted model unless that identity is explicitly provided by the deployment configuration.";
 
 if (!llmProxyUrl) {
   console.error("VITE_LLM_PROXY_URL is not set in environment variables");
@@ -208,7 +210,7 @@ export const extractColumnData = async (
         {
           role: "system",
           content:
-            "You are a precise data extraction agent. Extract data exactly as requested and return only valid JSON.",
+            `You are a precise data extraction agent. Extract data exactly as requested and return only valid JSON. ${modelIdentityInstruction}`,
         },
         {
           role: "user",
@@ -286,7 +288,7 @@ Return ONLY the prompt text, no conversational filler.`;
       messages: [
         {
           role: "system",
-          content: "You write concise, practical extraction prompts for document review workflows.",
+          content: `You write concise, practical extraction prompts for document review workflows. ${modelIdentityInstruction}`,
         },
         { role: "user", content: prompt },
       ],
@@ -323,6 +325,8 @@ export const analyzeDataWithChat = async (
   });
 
   const systemInstruction = `You are an intelligent data analyst assistant.
+${modelIdentityInstruction}
+
 You have access to a dataset extracted from documents.
 
 ${dataContext}

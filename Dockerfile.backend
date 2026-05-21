@@ -13,7 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 \
     libxrender1 \
     libxext6 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-kor \
     && rm -rf /var/lib/apt/lists/*
+
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
 
 # Copy and install Python dependencies
 COPY server/requirements.txt .

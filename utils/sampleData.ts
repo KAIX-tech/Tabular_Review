@@ -1,54 +1,59 @@
 import { DocumentFile, Column } from '../types';
 
-// Sample columns pre-configured for the Side Letter dataset
+// Sample columns pre-configured for commercial agreement review
 export const SAMPLE_COLUMNS: Column[] = [
   {
-    id: 'col_sample_investor',
-    name: 'Investor Entity',
-    type: 'text',
-    prompt: 'Identify the full legal name of the Investor entity.',
+    id: 'col_sample_parties',
+    name: 'Parties',
+    type: 'list',
+    prompt: `List the names or entities of all parties that are signatories to the document, and output in the following format:
+
+(1) [Party A] (Supplier)
+(2) [Party B] (Customer)
+
+Where a party is defined as something other than a 'Supplier' or 'Customer', use the term they are defined as.`,
     status: 'idle',
-    width: 250
+    width: 300
   },
   {
-    id: 'col_sample_date',
-    name: 'Date',
+    id: 'col_sample_background',
+    name: 'Background',
+    type: 'text',
+    prompt: 'Specify the background, scope and the purpose of the agreement.',
+    status: 'idle',
+    width: 320
+  },
+  {
+    id: 'col_sample_execution_date',
+    name: 'Execution date',
     type: 'date',
-    prompt: 'What is the date of the letter agreement?',
+    prompt: 'What is the execution date specified in the document i.e. what date was the document signed. Note this may be different from the date on which the agreement and its obligations commence.',
     status: 'idle',
     width: 250
   },
   {
-    id: 'col_sample_commitment',
-    name: 'Commitment Amount',
-    type: 'number',
-    prompt: 'Return as a number the commitment amount of the investor as shown in the side letter.',
-    status: 'idle',
-    width: 250
-  },
-  {
-    id: 'col_sample_mfn',
-    name: 'MFN',
-    type: 'boolean',
-    prompt: 'Is there a Most Favored Nation (MFN) clause?',
-    status: 'idle',
-    width: 200
-  },
-  {
-    id: 'col_sample_coinvest',
-    name: 'Co-Investment Rights',
+    id: 'col_sample_term',
+    name: 'Term',
     type: 'text',
-    prompt: 'Extract the full text of the Co-Investment clause.',
+    prompt: 'What is the term of the contract? Please include the relevant clause or schedule reference(s), e.g. (Clause 7.6(d)).',
+    status: 'idle',
+    width: 300
+  },
+  {
+    id: 'col_sample_pricing',
+    name: 'Pricing',
+    type: 'text',
+    prompt: 'What pricing structure is outlined in the document, including details on base prices, discounts, payment terms, and any conditions that may affect pricing (such as volume discounts, promotional offers, or adjustments based on market conditions)? Are there any additional fees or charges specified?',
     status: 'idle',
     width: 350
   },
   {
-    id: 'col_sample_poa',
-    name: 'Power of Attorney',
+    id: 'col_sample_termination_for_convenience',
+    name: 'Termination for Convenience Terms',
     type: 'text',
-    prompt: 'Extract the full text of the Power of Attorney clause.',
+    prompt: 'What are the specific terms and conditions related to termination for convenience in the agreements, including notice periods, any required formalities, potential penalties or fees, and whether there are any limitations on the right to terminate for convenience?',
     status: 'idle',
-    width: 350
+    width: 380
   }
 ];
 

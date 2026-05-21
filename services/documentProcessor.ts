@@ -1,4 +1,4 @@
-
+import { getApiUrl } from "./apiConfig";
 
 export const processDocumentToMarkdown = async (file: File): Promise<string> => {
   try {
@@ -6,7 +6,7 @@ export const processDocumentToMarkdown = async (file: File): Promise<string> => 
     formData.append('file', file);
 
     // Send to local backend running Docling
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const apiUrl = getApiUrl();
     const response = await fetch(`${apiUrl}/convert`, {
       method: 'POST',
       body: formData,
@@ -24,4 +24,3 @@ export const processDocumentToMarkdown = async (file: File): Promise<string> => 
     throw new Error(`Failed to convert ${file.name}. Is the backend server running?`);
   }
 };
-

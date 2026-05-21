@@ -88,6 +88,10 @@ const validateProject = (project: any): project is SavedProject => {
 
 const LIBRARY_STORAGE_KEY = 'tabular-review-column-library';
 
+const isFileSystemAccessSupported = (): boolean => {
+  return typeof window !== 'undefined' && !!window.showSaveFilePicker && !!window.showOpenFilePicker;
+};
+
 export const saveColumnLibrary = async (library: ColumnLibrary, toFile: boolean = false): Promise<boolean> => {
   // Always save to localStorage as backup
   localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(library));

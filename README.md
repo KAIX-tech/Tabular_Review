@@ -53,9 +53,14 @@ VLLM_API_KEY=EMPTY
 VLLM_MODEL=glm-5
 VLLM_TIMEOUT_SECONDS=120
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13001
+DOCLING_OCR_ENABLED=true
+DOCLING_OCR_FORCE_FULL_PAGE=false
+DOCLING_OCR_LANGS=eng,kor
 ```
 
 Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--api-key`. In that case, the backend will not send an `Authorization` header upstream.
+
+Docling OCR uses Tesseract CLI in the backend Docker image. Set `DOCLING_OCR_FORCE_FULL_PAGE=true` for scanned PDFs that do not have a usable text layer; keep it `false` for faster hybrid parsing on searchable PDFs.
 
 Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
 
