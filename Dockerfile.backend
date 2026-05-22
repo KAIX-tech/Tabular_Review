@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
+ENV HF_HUB_DISABLE_XET=1
 
 # Copy and install Python dependencies
 COPY server/requirements.txt .

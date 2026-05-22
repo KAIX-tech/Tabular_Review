@@ -24,6 +24,10 @@ services:
       - DOCLING_OCR_LANGS=${DOCLING_OCR_LANGS:-eng,kor}
       - DOCLING_HF_DISABLE_SSL_VERIFY=${DOCLING_HF_DISABLE_SSL_VERIFY:-true}
       - DOCLING_HF_TRUST_ENV=${DOCLING_HF_TRUST_ENV:-false}
+      - HF_HUB_DISABLE_XET=${HF_HUB_DISABLE_XET:-1}
+    volumes:
+      - docling-cache:/root/.cache/docling
+      - hf-cache:/root/.cache/huggingface
     networks:
       - tabular-review-network
 
@@ -53,3 +57,7 @@ services:
 networks:
   tabular-review-network:
     driver: bridge
+
+volumes:
+  docling-cache:
+  hf-cache:

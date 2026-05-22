@@ -58,13 +58,25 @@ DOCLING_OCR_FORCE_FULL_PAGE=false
 DOCLING_OCR_LANGS=eng,kor
 DOCLING_HF_DISABLE_SSL_VERIFY=true
 DOCLING_HF_TRUST_ENV=false
+HF_HUB_DISABLE_XET=1
+DOCLING_MODEL_CACHE=/root/.cache/docling/models
+HF_TOKEN=
+HF_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
 ```
 
 Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--api-key`. In that case, the backend will not send an `Authorization` header upstream.
 
 Docling OCR uses Tesseract CLI in the backend Docker image. Set `DOCLING_OCR_FORCE_FULL_PAGE=true` for scanned PDFs that do not have a usable text layer; keep it `false` for faster hybrid parsing on searchable PDFs.
 
-Docling may download layout/table extraction models from Hugging Face Hub on first PDF conversion. Set `DOCLING_HF_DISABLE_SSL_VERIFY=true` only when an internal TLS proxy or self-signed certificate blocks those model downloads. Keep `DOCLING_HF_TRUST_ENV=false` unless those downloads must use proxy variables from the container environment.
+Docling may download layout/table extraction models from Hugging Face Hub on first PDF conversion. Set `DOCLING_HF_DISABLE_SSL_VERIFY=true` only when an internal TLS proxy or self-signed certificate blocks those model downloads. Keep `DOCLING_HF_TRUST_ENV=false` unless those downloads must use proxy variables from the container environment. `HF_HUB_DISABLE_XET=1` keeps model file downloads on the Python Hugging Face client path where the SSL bypass is applied.
+
+To prefetch Docling models before serving PDFs, run:
+
+```bash
+docker compose run --rm backend python download_docling_models.py
+```
+
+The script downloads the required layout and table models into `/root/.cache/docling/models`, which is persisted by the `docling-cache` Docker volume. It uses `requests` with SSL verification disabled by default, supports `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`, and sends a browser-like User-Agent.
 
 Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
 
