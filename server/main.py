@@ -36,6 +36,7 @@ VLLM_TIMEOUT_SECONDS = float(env_value("VLLM_TIMEOUT_SECONDS", "120"))
 DOCLING_OCR_ENABLED = parse_bool_env("DOCLING_OCR_ENABLED", True)
 DOCLING_OCR_FORCE_FULL_PAGE = parse_bool_env("DOCLING_OCR_FORCE_FULL_PAGE", False)
 DOCLING_OCR_LANGS = parse_csv_env("DOCLING_OCR_LANGS", "eng,kor")
+DOCLING_OCR_FALLBACK_ON_DECODE_ERROR = parse_bool_env("DOCLING_OCR_FALLBACK_ON_DECODE_ERROR", True)
 DOCLING_PDF_BACKEND = env_value("DOCLING_PDF_BACKEND", "pypdfium2")
 DOCLING_HF_DISABLE_SSL_VERIFY = parse_bool_env("DOCLING_HF_DISABLE_SSL_VERIFY", False)
 DOCLING_HF_TRUST_ENV = parse_bool_env("DOCLING_HF_TRUST_ENV", False)
@@ -89,7 +90,10 @@ app.add_middleware(
 
 # Initialize converter with GPU acceleration if available
 # Use MPS (Metal Performance Shaders) on Apple Silicon Macs
-def create_converter():
+def create_converter(ocr_enabled=None):
+    if ocr_enabled is None:
+        ocr_enabled = DOCLING_OCR_ENABLED
+
     if platform.system() == "Darwin":  # macOS
         print("Detected macOS - enabling MPS (Metal) GPU acceleration")
         accelerator_options = AcceleratorOptions(
@@ -106,8 +110,8 @@ def create_converter():
     # Configure PDF pipeline with accelerator options
     pdf_pipeline_options = PdfPipelineOptions()
     pdf_pipeline_options.accelerator_options = accelerator_options
-    pdf_pipeline_options.do_ocr = DOCLING_OCR_ENABLED
-    if DOCLING_OCR_ENABLED:
+    pdf_pipeline_options.do_ocr = ocr_enabled
+    if ocr_enabled:
         print(
             "Docling OCR enabled "
             f"langs={DOCLING_OCR_LANGS} "
@@ -139,6 +143,31 @@ def create_converter():
     )
 
 converter = create_converter()
+converter_without_ocr = None
+
+def should_retry_without_ocr(error):
+    return (
+        DOCLING_OCR_ENABLED
+        and DOCLING_OCR_FALLBACK_ON_DECODE_ERROR
+        and "utf-8" in str(error).lower()
+        and "codec can't decode" in str(error).lower()
+    )
+
+def convert_with_fallback(tmp_path):
+    global converter_without_ocr
+    try:
+        return converter.convert(tmp_path)
+    except Exception as error:
+        if not should_retry_without_ocr(error):
+            raise
+
+        print(
+            "Docling OCR failed with UTF-8 decode error; "
+            "retrying conversion with OCR disabled"
+        )
+        if converter_without_ocr is None:
+            converter_without_ocr = create_converter(ocr_enabled=False)
+        return converter_without_ocr.convert(tmp_path)
 
 def vllm_headers():
     headers = {"Content-Type": "application/json"}
@@ -161,7 +190,7 @@ async def convert_document(file: UploadFile = File(...)):
 
         try:
             # Convert the document
-            result = converter.convert(tmp_path)
+            result = convert_with_fallback(tmp_path)
             # Export to markdown
             markdown_content = result.document.export_to_markdown()
             return {"markdown": markdown_content}
