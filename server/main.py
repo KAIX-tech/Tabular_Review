@@ -5,6 +5,8 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions, TesseractCliO
 from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
+from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
+from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
 import httpx
 import tempfile
 import os
@@ -34,8 +36,14 @@ VLLM_TIMEOUT_SECONDS = float(env_value("VLLM_TIMEOUT_SECONDS", "120"))
 DOCLING_OCR_ENABLED = parse_bool_env("DOCLING_OCR_ENABLED", True)
 DOCLING_OCR_FORCE_FULL_PAGE = parse_bool_env("DOCLING_OCR_FORCE_FULL_PAGE", False)
 DOCLING_OCR_LANGS = parse_csv_env("DOCLING_OCR_LANGS", "eng,kor")
+DOCLING_PDF_BACKEND = env_value("DOCLING_PDF_BACKEND", "pypdfium2")
 DOCLING_HF_DISABLE_SSL_VERIFY = parse_bool_env("DOCLING_HF_DISABLE_SSL_VERIFY", False)
 DOCLING_HF_TRUST_ENV = parse_bool_env("DOCLING_HF_TRUST_ENV", False)
+
+PDF_BACKENDS = {
+    "docling_parse": DoclingParseDocumentBackend,
+    "pypdfium2": PyPdfiumDocumentBackend,
+}
 
 def configure_huggingface_ssl():
     if not DOCLING_HF_DISABLE_SSL_VERIFY:
@@ -111,10 +119,22 @@ def create_converter():
         )
     else:
         print("Docling OCR disabled")
+
+    pdf_backend = PDF_BACKENDS.get(DOCLING_PDF_BACKEND)
+    if pdf_backend is None:
+        available_backends = ", ".join(sorted(PDF_BACKENDS))
+        raise RuntimeError(
+            f"Unsupported DOCLING_PDF_BACKEND={DOCLING_PDF_BACKEND}. "
+            f"Available values: {available_backends}"
+        )
+    print(f"Docling PDF backend={DOCLING_PDF_BACKEND}")
     
     return DocumentConverter(
         format_options={
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipeline_options)
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=pdf_pipeline_options,
+                backend=pdf_backend,
+            )
         }
     )
 

@@ -56,6 +56,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,h
 DOCLING_OCR_ENABLED=true
 DOCLING_OCR_FORCE_FULL_PAGE=false
 DOCLING_OCR_LANGS=eng,kor
+DOCLING_PDF_BACKEND=pypdfium2
 DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
 DOCLING_HF_DISABLE_SSL_VERIFY=true
 DOCLING_HF_TRUST_ENV=false
@@ -68,6 +69,8 @@ HF_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--api-key`. In that case, the backend will not send an `Authorization` header upstream.
 
 Docling OCR uses Tesseract CLI in the backend Docker image. Set `DOCLING_OCR_FORCE_FULL_PAGE=true` for scanned PDFs that do not have a usable text layer; keep it `false` for faster hybrid parsing on searchable PDFs.
+
+`DOCLING_PDF_BACKEND=pypdfium2` uses the pypdfium2 PDF backend, which avoids UTF-8 decode failures that can occur in Docling's default parser on some PDFs. Set it to `docling_parse` to return to Docling's default PDF parser.
 
 Docling may download layout/table extraction models from Hugging Face Hub on first PDF conversion. Set `DOCLING_HF_DISABLE_SSL_VERIFY=true` only when an internal TLS proxy or self-signed certificate blocks those model downloads. Keep `DOCLING_HF_TRUST_ENV=false` unless those downloads must use proxy variables from the container environment. `HF_HUB_DISABLE_XET=1` keeps model file downloads on the Python Hugging Face client path where the SSL bypass is applied. `DOCLING_ARTIFACTS_PATH` tells the runtime converter to use the prefetched local model folders instead of looking up Hugging Face snapshots again.
 
