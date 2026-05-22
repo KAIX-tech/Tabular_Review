@@ -13,6 +13,9 @@ services:
       - "18001:8000"
     environment:
       - PYTHONUNBUFFERED=${PYTHONUNBUFFERED:-1}
+      - PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
+      - LANG=${LANG:-C.UTF-8}
+      - LC_ALL=${LC_ALL:-C.UTF-8}
       - VITE_API_URL=${VITE_API_URL:-http://10.10.190.4:18001}
       - VLLM_BASE_URL=${VLLM_BASE_URL:-http://10.10.190.10:15006/v1}
       - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}

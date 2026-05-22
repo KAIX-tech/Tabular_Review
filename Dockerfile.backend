@@ -18,6 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-kor \
     && rm -rf /var/lib/apt/lists/*
 
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PYTHONIOENCODING=utf-8
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
 ENV HF_HUB_DISABLE_XET=1
 
