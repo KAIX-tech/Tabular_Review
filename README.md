@@ -56,6 +56,7 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,h
 DOCLING_OCR_ENABLED=true
 DOCLING_OCR_FORCE_FULL_PAGE=false
 DOCLING_OCR_LANGS=eng,kor
+DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
 DOCLING_HF_DISABLE_SSL_VERIFY=true
 DOCLING_HF_TRUST_ENV=false
 HF_HUB_DISABLE_XET=1
@@ -68,7 +69,7 @@ Leave `VLLM_API_KEY` empty or set to `EMPTY` when vLLM is not started with `--ap
 
 Docling OCR uses Tesseract CLI in the backend Docker image. Set `DOCLING_OCR_FORCE_FULL_PAGE=true` for scanned PDFs that do not have a usable text layer; keep it `false` for faster hybrid parsing on searchable PDFs.
 
-Docling may download layout/table extraction models from Hugging Face Hub on first PDF conversion. Set `DOCLING_HF_DISABLE_SSL_VERIFY=true` only when an internal TLS proxy or self-signed certificate blocks those model downloads. Keep `DOCLING_HF_TRUST_ENV=false` unless those downloads must use proxy variables from the container environment. `HF_HUB_DISABLE_XET=1` keeps model file downloads on the Python Hugging Face client path where the SSL bypass is applied.
+Docling may download layout/table extraction models from Hugging Face Hub on first PDF conversion. Set `DOCLING_HF_DISABLE_SSL_VERIFY=true` only when an internal TLS proxy or self-signed certificate blocks those model downloads. Keep `DOCLING_HF_TRUST_ENV=false` unless those downloads must use proxy variables from the container environment. `HF_HUB_DISABLE_XET=1` keeps model file downloads on the Python Hugging Face client path where the SSL bypass is applied. `DOCLING_ARTIFACTS_PATH` tells the runtime converter to use the prefetched local model folders instead of looking up Hugging Face snapshots again.
 
 To prefetch Docling models before serving PDFs, run:
 
@@ -76,7 +77,7 @@ To prefetch Docling models before serving PDFs, run:
 docker compose run --rm backend python download_docling_models.py
 ```
 
-The script downloads the required layout and table models into `/root/.cache/docling/models`, which is persisted by the `docling-cache` Docker volume. It uses `requests` with SSL verification disabled by default, supports `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`, and sends a browser-like User-Agent.
+The script downloads the required layout and table models into `/root/.cache/docling/models`, which is persisted by the `docling-cache` Docker volume. It uses `requests` with SSL verification disabled by default, supports `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`, and sends a browser-like User-Agent. Keep `DOCLING_ARTIFACTS_PATH` pointed at the same directory so Docling uses those downloaded files at runtime.
 
 Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
 
