@@ -2,7 +2,8 @@
 # Tabular Review for Bulk Document Analysis
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![React](https://img.shields.io/badge/framework-React-61DAFB.svg)
+![Next.js](https://img.shields.io/badge/framework-Next.js-000000.svg)
+![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688.svg)
 ![AI](https://img.shields.io/badge/AI-On--prem%20vLLM-8E75B2.svg)
 
 An AI-powered document review workspace that transforms unstructured legal contracts into structured, queryable datasets. Designed for legal professionals, auditors, and procurement teams to accelerate due diligence and contract analysis.
@@ -22,30 +23,52 @@ https://github.com/user-attachments/assets/b63026d8-3df6-48a8-bb4b-eb8f24d3a1ca
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS
-- **AI Integration**: On-prem vLLM OpenAI-compatible chat completions API
+- **Frontend** (`frontend/`): Next.js (App Router), React 19, TypeScript, Tailwind CSS — organized with Feature-Sliced Design (FSD).
+- **Backend** (`backend/`): FastAPI + Docling, structured with Domain-Driven Design (DDD, ports & adapters).
+- **AI Integration**: On-prem vLLM OpenAI-compatible chat completions API, proxied through the backend.
 
-## 📦 Getting Started
+## 🗂 Project Structure
+
+```
+.
+├── frontend/   Next.js App Router + FSD            → see frontend/CLAUDE.md
+├── backend/    FastAPI + DDD (bounded contexts)    → see backend/CLAUDE.md
+├── docs/       Product/design docs (screen-plan.md)
+├── docker-compose.yml
+└── .env.example
+```
+
+The browser talks only to the backend; the backend converts documents (Docling `/convert`) and proxies LLM calls (`/llm/chat/completions` → vLLM), keeping the API key server-side and avoiding browser CORS. See [CLAUDE.md](CLAUDE.md) for the full overview.
+
+## 📦 Getting Started (local development)
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/tabular-review.git
-cd tabular-review
+git clone https://github.com/KAIX-tech/Tabular_Review.git
+cd Tabular_Review
 ```
 
-### 2. Setup Frontend
-Install Node dependencies:
+### 2. Backend (Docling + vLLM proxy)
+
+The backend is required for document conversion. The helper script creates a virtualenv, installs dependencies, and starts the server (with MPS GPU acceleration on Apple Silicon):
+
 ```bash
-pnpm install
+./start-backend.sh
 ```
 
-Create a `.env.local` file in the root directory for the frontend:
-```env
-VITE_LLM_MODEL=glm-5
-VITE_LLM_TIMEOUT_MS=120000
+Or manually:
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-The frontend calls the local FastAPI backend, and the backend proxies requests to vLLM. Configure the backend with:
+API docs are then available at `http://localhost:8000/docs`.
+
+Configure the backend via environment variables (or a `.env` file). All settings are declared in `backend/app/core/config.py`:
 
 ```env
 VLLM_BASE_URL=http://10.10.190.10:15006/v1
@@ -83,7 +106,7 @@ Docling may download layout/table extraction models from Hugging Face Hub on fir
 To prefetch Docling models before serving PDFs, run:
 
 ```bash
-docker compose run --rm backend python download_docling_models.py
+docker compose run --rm backend python scripts/download_docling_models.py
 ```
 
 The script downloads the required layout and table models into `/root/.cache/docling/models`, which is persisted by the `docling-cache` Docker volume. It uses `requests` with SSL verification disabled by default, supports `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`, and sends a browser-like User-Agent. Keep `DOCLING_ARTIFACTS_PATH` pointed at the same directory so Docling uses those downloaded files at runtime.
@@ -97,32 +120,27 @@ vllm serve /path/to/glm-5 \
   --served-model-name glm-5
 ```
 
-### 3. Setup Backend (Docling)
-The backend is required for document conversion.
+### 3. Frontend (Next.js)
 
 ```bash
-cd server
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 4. Run
-Start the backend (in one terminal):
-```bash
-cd server
-source venv/bin/activate
-python main.py
-```
-
-Start the frontend (in another terminal):
-```bash
+cd frontend
+pnpm install
 pnpm dev
 ```
 
-### 🐳 Docker Deployment (Alternative)
+The app runs at `http://localhost:3000`. Create `frontend/.env.local` to point the browser at the backend (client vars must be `NEXT_PUBLIC_*`):
 
-You can also run the application using Docker:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:18001
+NEXT_PUBLIC_LLM_MODEL=glm-5
+NEXT_PUBLIC_LLM_TIMEOUT_MS=120000
+```
+
+Useful scripts: `pnpm build`, `pnpm typecheck`, `pnpm lint` (Biome + FSD import rules).
+
+## 🐳 Docker Deployment (Alternative)
+
+You can run both services with Docker Compose:
 
 1. **Setup environment**:
    ```bash
@@ -130,9 +148,9 @@ You can also run the application using Docker:
    # Edit .env and configure your vLLM endpoint
    ```
 
-2. **Build and run with Docker**:
+2. **Build and run**:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
 3. **Access the application**:
@@ -140,9 +158,9 @@ You can also run the application using Docker:
    - Backend API: http://localhost:18001/docs
 
 The Docker setup includes:
-- **Frontend**: React app served by Node.js static server
-- **Backend**: FastAPI with Docling document processing
-- **Simple networking**: Services communicate via Docker network
+- **Frontend**: Next.js app (`frontend/Dockerfile`)
+- **Backend**: FastAPI with Docling document processing (`backend/Dockerfile`)
+- **Simple networking**: Services communicate over a shared Docker network
 
 ## 🛡 License
 
