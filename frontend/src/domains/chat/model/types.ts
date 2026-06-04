@@ -1,4 +1,5 @@
 export interface ChatSource {
+  documentDb: string;
   documentName: string;
   page: number;
   quote: string;

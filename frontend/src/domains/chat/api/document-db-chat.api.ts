@@ -5,18 +5,14 @@ import { type MockChatReply, mockChatReply } from "./chat.fixtures";
 export type ChatReply = MockChatReply;
 
 /**
- * Send a chat message scoped to a Document DB. Mock-first: returns a fixture
+ * Send a chat message across all Document DBs. Mock-first: returns a fixture
  * reply (with simulated latency) until the backend chat/RAG context exists.
  * Signature is stable so only the body changes once the backend lands.
  */
-export async function sendChatMessage(
-  dbName: string,
-  message: string,
-  _history: ChatMessage[],
-): Promise<ChatReply> {
+export async function sendChatMessage(message: string, _history: ChatMessage[]): Promise<ChatReply> {
   if (ENV.useMocks) {
     await new Promise((resolve) => setTimeout(resolve, 700));
-    return mockChatReply(dbName, message);
+    return mockChatReply(message);
   }
-  throw new Error("Real Document DB chat is not implemented yet");
+  throw new Error("Real cross-Document-DB chat is not implemented yet");
 }

@@ -1,7 +1,7 @@
 import { DocumentDbRail } from "@/domains/document-db";
 
-// User shell: same left rail (read-only in user surface) + content area.
-export default function UserLayout({ children }: { children: React.ReactNode }) {
+// App shell: left sidebar (Chat + Document DB switcher) + content area.
+export default function ShellLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-slate-50">
       <DocumentDbRail />

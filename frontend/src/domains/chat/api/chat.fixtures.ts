@@ -6,27 +6,30 @@ export interface MockChatReply {
 }
 
 /**
- * Mock chat reply for a Document DB. Returns a scenario-style answer plus source
- * citations until the backend chat/RAG context exists (§9 of the screen plan).
+ * Mock chat reply spanning all Document DBs. Returns a scenario-style answer with
+ * source citations drawn from multiple DBs until the backend chat/RAG context
+ * exists (§9 of the screen plan).
  */
-export function mockChatReply(dbName: string, message: string): MockChatReply {
+export function mockChatReply(message: string): MockChatReply {
   return {
     text:
       `“${message}”에 대한 분석 결과입니다.\n\n` +
-      `${dbName} 내 문서를 비교한 결과, ACME_MSA 계약이 가장 유리한 조건을 가지고 있습니다. ` +
-      `특히 MFN(최혜대우) 조항이 다른 계약보다 폭넓게 적용됩니다. (목업 응답)`,
+      `전체 Document DB를 검색한 결과, 계약서 DB의 ACME_MSA 계약이 가장 폭넓은 MFN(최혜대우) 조항을 포함하고 있으며, ` +
+      `약관 DB에서도 유사한 최혜대우 조항이 확인됩니다. (목업 응답)`,
     sources: [
       {
+        documentDb: "계약서",
         documentName: "ACME_MSA.pdf",
         page: 12,
         quote:
-          "...shall be governed by the laws of the State of New York, and the most favored nation treatment shall apply to all fees and commercial terms...",
+          "...the most favored nation treatment shall apply to all fees and commercial terms granted to any other counterparty...",
       },
       {
-        documentName: "Beta_NDA.pdf",
-        page: 4,
+        documentDb: "약관",
+        documentName: "표준약관_v3.pdf",
+        page: 7,
         quote:
-          "...the parties agree that no term more favorable shall be granted to any third party without offering the same to the Counterparty...",
+          "...본 약관에서 정한 조건보다 유리한 조건을 제3자에게 제공하는 경우, 동일한 조건을 고객에게도 적용한다...",
       },
     ],
   };

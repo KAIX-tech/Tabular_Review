@@ -1,20 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useDocumentDb } from "@/domains/document-db";
 import { Bot, FileText, Send, User, X } from "@/shared/ui/icons";
 import { sendChatMessage } from "../api/document-db-chat.api";
 import type { ChatMessage, ChatSource } from "../model/types";
 
 const SUGGESTED = [
-  "이 Document DB에서 가장 흔한 조항은?",
-  "계약일이 가장 빠른 문서는?",
   "MFN 조항이 가장 유리한 계약은?",
+  "전체 DB에서 가장 흔한 조항은?",
+  "최근 수정된 문서는?",
 ];
 
-/** U-0: chat-first surface scoped to one Document DB, with source citations. */
-export function ChatMainPage({ dbId }: { dbId: string }) {
-  const { data: db } = useDocumentDb(dbId);
+/** Global chat surface across all Document DBs, with source citations. */
+export function ChatMainPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -33,7 +31,7 @@ export function ChatMainPage({ dbId }: { dbId: string }) {
     setInput("");
     setIsTyping(true);
     try {
-      const reply = await sendChatMessage(db?.name ?? dbId, q, messages);
+      const reply = await sendChatMessage(q, messages);
       setMessages((prev) => [
         ...prev,
         { id: `${Date.now() + 1}`, role: "model", text: reply.text, timestamp: Date.now(), sources: reply.sources },
@@ -56,8 +54,8 @@ export function ChatMainPage({ dbId }: { dbId: string }) {
             <Bot className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="font-semibold text-slate-900 leading-tight">{db?.name ?? "Document DB"} 챗</h1>
-            <p className="text-xs text-slate-500">문서 기반으로 질문하세요</p>
+            <h1 className="font-semibold text-slate-900 leading-tight">Chat</h1>
+            <p className="text-xs text-slate-500">전체 Document DB에 대해 질문하세요</p>
           </div>
         </header>
 
@@ -67,9 +65,7 @@ export function ChatMainPage({ dbId }: { dbId: string }) {
               <div className="p-3 bg-white border border-slate-200 rounded-full text-indigo-500">
                 <Bot className="w-8 h-8" />
               </div>
-              <p className="text-slate-500 text-sm">
-                {db?.name ?? "이 Document DB"}에 대해 무엇이든 물어보세요.
-              </p>
+              <p className="text-slate-500 text-sm">전체 Document DB에 대해 무엇이든 물어보세요.</p>
               <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                 {SUGGESTED.map((s) => (
                   <button
@@ -119,7 +115,7 @@ export function ChatMainPage({ dbId }: { dbId: string }) {
                           }`}
                         >
                           <FileText className="w-3 h-3" />
-                          출처 {i + 1}: {src.documentName} p.{src.page}
+                          {src.documentDb} · {src.documentName} p.{src.page}
                         </button>
                       ))}
                     </div>
@@ -156,7 +152,7 @@ export function ChatMainPage({ dbId }: { dbId: string }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send(input)}
-              placeholder={`${db?.name ?? "Document DB"}에 대해 무엇이든 물어보세요…`}
+              placeholder="전체 Document DB에 대해 무엇이든 물어보세요…"
               className="w-full bg-slate-100 border-none rounded-full py-3 pl-4 pr-12 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             />
             <button
@@ -176,7 +172,9 @@ export function ChatMainPage({ dbId }: { dbId: string }) {
           <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100">
             <div className="flex items-center gap-2 min-w-0">
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-sm font-semibold text-slate-800 truncate">{activeSource.documentName}</span>
+              <span className="text-sm font-semibold text-slate-800 truncate">
+                {activeSource.documentDb} · {activeSource.documentName}
+              </span>
               <span className="text-xs text-slate-400 shrink-0">p.{activeSource.page}</span>
             </div>
             <button

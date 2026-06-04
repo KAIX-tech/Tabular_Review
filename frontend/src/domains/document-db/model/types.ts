@@ -10,10 +10,6 @@ export interface DocumentDb {
   updatedAt: string; // ISO timestamp
 }
 
-// Role decides which surfaces/actions are available (auth is out of scope; the
-// role is assumed-known at entry and toggled via the Zustand UI store for now).
-export type UserRole = "admin" | "user";
-
 // Project persistence types
 export interface SavedProject {
   version: 1;
