@@ -85,22 +85,17 @@ export function ChatMainPage() {
   return (
     <div className="flex h-full">
       <section className="flex-1 min-w-0 flex flex-col bg-canvas">
-        <header className="h-16 px-6 flex items-center gap-2 border-b border-border bg-surface shrink-0">
-          <span className="grid place-items-center w-7 h-7 rounded-lg bg-ink text-white">
-            <Sparkles className="w-4 h-4" />
-          </span>
-          <div>
-            <h1 className="text-base font-semibold text-ink leading-tight">Chat</h1>
-            <p className="text-xs text-ink-2">전체 Document DB에 대해 질문하세요</p>
-          </div>
+        <header className="h-16 px-6 flex flex-col justify-center border-b border-border bg-surface shrink-0">
+          <h1 className="text-base font-semibold text-ink leading-tight">Chat</h1>
+          <p className="text-xs text-ink-2">전체 Document DB에 대해 질문하세요</p>
         </header>
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
             {messages.length === 0 && !isTyping && (
               <div className="h-full flex flex-col items-center justify-center text-center gap-5 pt-24">
-                <span className="grid place-items-center w-14 h-14 rounded-2xl bg-ink text-white shadow-soft">
-                  <Sparkles className="w-7 h-7" />
+                <span className="grid place-items-center w-12 h-12 rounded-full bg-ink text-white">
+                  <Sparkles className="w-6 h-6" strokeWidth={1.75} />
                 </span>
                 <p className="text-ink-2 text-sm">전체 Document DB에 대해 무엇이든 물어보세요.</p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg">
@@ -126,26 +121,24 @@ export function ChatMainPage() {
                   </div>
                 </div>
               ) : (
-                <div key={m.id} className="flex gap-3">
-                  <span className="grid place-items-center w-7 h-7 rounded-full bg-ink text-white shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
+                <div key={m.id}>
+                  <span className="grid place-items-center w-8 h-8 rounded-full bg-ink text-white mb-3">
+                    <Sparkles className="w-4 h-4" strokeWidth={1.75} />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap break-words">{m.text}</p>
-                    {m.sources && m.sources.length > 0 && (
-                      <SourceCitations sources={m.sources} active={activeSource} onSelect={setActiveSource} />
-                    )}
-                  </div>
+                  <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap break-words">{m.text}</p>
+                  {m.sources && m.sources.length > 0 && (
+                    <SourceCitations sources={m.sources} active={activeSource} onSelect={setActiveSource} />
+                  )}
                 </div>
               ),
             )}
 
             {isTyping && (
-              <div className="flex gap-3">
-                <span className="grid place-items-center w-7 h-7 rounded-full bg-ink text-white shrink-0">
-                  <Sparkles className="w-4 h-4" />
+              <div>
+                <span className="grid place-items-center w-8 h-8 rounded-full bg-ink text-white mb-3">
+                  <Sparkles className="w-4 h-4" strokeWidth={1.75} />
                 </span>
-                <div className="flex items-center gap-1 mt-2.5">
+                <div className="flex items-center gap-1">
                   {[0, 150, 300].map((d) => (
                     <span
                       key={d}
@@ -162,22 +155,26 @@ export function ChatMainPage() {
 
         <div className="px-6 pb-6 pt-2 bg-canvas shrink-0">
           <div className="max-w-3xl mx-auto relative flex items-center">
-            <Paperclip className="absolute left-4 w-4 h-4 text-ink-3" />
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send(input)}
               placeholder="전체 Document DB에 대해 무엇이든 물어보세요…"
-              className="tr-input pl-11 pr-14 shadow-soft border border-border"
+              className="w-full h-14 bg-surface border border-border rounded-2xl pl-5 pr-[5.5rem] text-[15px] text-ink placeholder:text-ink-3 shadow-card transition focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
-            <button
-              type="button"
-              onClick={() => send(input)}
-              disabled={!input.trim() || isTyping}
-              className="tr-btn tr-btn-primary absolute right-2 h-9 w-9 !p-0 rounded-full"
-            >
-              <ArrowUp className="w-4 h-4" />
-            </button>
+            <div className="absolute right-2.5 flex items-center gap-1">
+              <button type="button" title="첨부" className="tr-icon-btn h-9 w-9">
+                <Paperclip className="w-4 h-4" strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                onClick={() => send(input)}
+                disabled={!input.trim() || isTyping}
+                className="tr-btn tr-btn-primary h-9 w-9 !p-0 rounded-full"
+              >
+                <ArrowUp className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </div>
           </div>
         </div>
       </section>
