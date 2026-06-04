@@ -10,7 +10,7 @@ services:
     container_name: tabular-review-backend
     restart: unless-stopped
     ports:
-      - "18001:8000"
+      - "18002:8000"
     environment:
       - PYTHONUNBUFFERED=${PYTHONUNBUFFERED:-1}
       - PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
@@ -20,7 +20,7 @@ services:
       - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
       - VLLM_MODEL=${VLLM_MODEL:-glm-5}
       - VLLM_TIMEOUT_SECONDS=${VLLM_TIMEOUT_SECONDS:-120}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13001}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13002}
       - DOCLING_OCR_ENABLED=${DOCLING_OCR_ENABLED:-true}
       - DOCLING_OCR_FORCE_FULL_PAGE=${DOCLING_OCR_FORCE_FULL_PAGE:-false}
       - DOCLING_OCR_LANGS=${DOCLING_OCR_LANGS:-eng,kor}
@@ -42,7 +42,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18001}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
         NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL:-glm-5}
         NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
     container_name: tabular-review-frontend
@@ -50,9 +50,9 @@ services:
     depends_on:
       - backend
     ports:
-      - "13001:3000"
+      - "13002:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18001}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
       - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL:-glm-5}
       - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
       - NODE_ENV=${NODE_ENV:-production}

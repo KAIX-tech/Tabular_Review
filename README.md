@@ -73,7 +73,7 @@ VLLM_BASE_URL=http://10.10.190.10:15006/v1
 VLLM_API_KEY=EMPTY
 VLLM_MODEL=glm-5
 VLLM_TIMEOUT_SECONDS=120
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13001
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13002
 PYTHONIOENCODING=utf-8
 LANG=C.UTF-8
 LC_ALL=C.UTF-8
@@ -129,7 +129,7 @@ pnpm dev
 The app runs at `http://localhost:3000`. Create `frontend/.env.local` to point the browser at the backend (client vars must be `NEXT_PUBLIC_*`):
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:18001
+NEXT_PUBLIC_API_URL=http://localhost:18002
 NEXT_PUBLIC_LLM_MODEL=glm-5
 NEXT_PUBLIC_LLM_TIMEOUT_MS=120000
 ```
@@ -152,8 +152,8 @@ You can run both services with Docker Compose:
    ```
 
 3. **Access the application**:
-   - Frontend: http://localhost:13001
-   - Backend API: http://localhost:18001/docs
+   - Frontend: http://localhost:13002
+   - Backend API: http://localhost:18002/docs
 
 The Docker setup includes:
 - **Frontend**: Next.js app (`frontend/Dockerfile`)
