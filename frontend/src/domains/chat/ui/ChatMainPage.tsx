@@ -85,12 +85,19 @@ export function ChatMainPage() {
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [activeSource, setActiveSource] = useState<ChatSource | null>(null);
+  // `source` holds the last shown citation (kept for smooth slide-out); `panelOpen` toggles it.
+  const [source, setSource] = useState<ChatSource | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isTyping]);
+
+  const openSource = (s: ChatSource) => {
+    setSource(s);
+    setPanelOpen(true);
+  };
 
   const send = async (text: string) => {
     const q = text.trim();
@@ -120,9 +127,10 @@ export function ChatMainPage() {
   };
 
   const isEmpty = messages.length === 0 && !isTyping;
+  const activeCite = panelOpen ? source : null;
 
   return (
-    <div className="flex h-full">
+    <div className="relative flex h-full overflow-hidden">
       <section className="flex-1 min-w-0 flex flex-col bg-canvas">
         <header className="h-16 px-6 flex flex-col justify-center border-b border-border bg-surface shrink-0">
           <h1 className="text-base font-semibold text-ink leading-tight">Chat</h1>
@@ -130,7 +138,6 @@ export function ChatMainPage() {
         </header>
 
         {isEmpty ? (
-          /* New chat: centered, emphasized composer */
           <div className="flex-1 flex flex-col items-center justify-start px-6 pt-[16vh]">
             <div className="w-full max-w-2xl text-center">
               <h2 className="text-xl font-semibold text-ink tracking-tight">무엇을 도와드릴까요?</h2>
@@ -169,7 +176,7 @@ export function ChatMainPage() {
                     <div key={m.id}>
                       <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap break-words">{m.text}</p>
                       {m.sources && m.sources.length > 0 && (
-                        <SourceCitations sources={m.sources} active={activeSource} onSelect={setActiveSource} />
+                        <SourceCitations sources={m.sources} active={activeCite} onSelect={openSource} />
                       )}
                     </div>
                   ),
@@ -199,25 +206,33 @@ export function ChatMainPage() {
         )}
       </section>
 
-      {activeSource && (
-        <aside className="w-[360px] shrink-0 border-l border-border bg-surface flex flex-col">
-          <div className="h-16 px-4 flex items-center justify-between border-b border-border">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="tr-badge tr-badge-neutral shrink-0">{activeSource.documentDb}</span>
-              <span className="text-sm font-medium text-ink truncate">{activeSource.documentName}</span>
-              <span className="text-xs text-ink-3 shrink-0">p.{activeSource.page}</span>
+      {/* Source citation drawer — slides in over the content (no reflow). */}
+      <aside
+        className={`absolute top-0 right-0 h-full w-[360px] bg-surface border-l border-border shadow-popover flex flex-col transition-transform duration-300 ease-out ${
+          panelOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        aria-hidden={!panelOpen}
+      >
+        {source && (
+          <>
+            <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="tr-badge tr-badge-neutral shrink-0">{source.documentDb}</span>
+                <span className="text-sm font-medium text-ink truncate">{source.documentName}</span>
+                <span className="text-xs text-ink-3 shrink-0">p.{source.page}</span>
+              </div>
+              <button type="button" onClick={() => setPanelOpen(false)} className="tr-icon-btn">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button type="button" onClick={() => setActiveSource(null)} className="tr-icon-btn">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-5">
-            <p className="text-sm leading-relaxed text-ink">
-              <mark className="bg-yellow-200 text-ink px-0.5 rounded">{activeSource.quote}</mark>
-            </p>
-          </div>
-        </aside>
-      )}
+            <div className="flex-1 overflow-y-auto p-5">
+              <p className="text-sm leading-relaxed text-ink">
+                <mark className="bg-yellow-200 text-ink px-0.5 rounded">{source.quote}</mark>
+              </p>
+            </div>
+          </>
+        )}
+      </aside>
     </div>
   );
 }
