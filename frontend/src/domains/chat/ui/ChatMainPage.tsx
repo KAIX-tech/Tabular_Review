@@ -63,7 +63,7 @@ function SourceCitations({
       <span className="text-[11px] text-ink-3 mr-0.5">출처</span>
       {sources.map((src, i) => (
         <button
-          key={`${src.documentName}-${i}`}
+          key={`${src.documentDb}-${src.documentName}-${src.page}-${i}`}
           type="button"
           data-cite
           onClick={() => onSelect(src)}

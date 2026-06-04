@@ -4,6 +4,8 @@ import { type MockChatReply, mockChatReply } from "./chat.fixtures";
 
 export type ChatReply = MockChatReply;
 
+const MOCK_CHAT_LATENCY_MS = 700;
+
 /**
  * Send a chat message across all Document DBs. Mock-first: returns a fixture
  * reply (with simulated latency) until the backend chat/RAG context exists.
@@ -11,7 +13,7 @@ export type ChatReply = MockChatReply;
  */
 export async function sendChatMessage(message: string, _history: ChatMessage[]): Promise<ChatReply> {
   if (ENV.useMocks) {
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, MOCK_CHAT_LATENCY_MS));
     return mockChatReply(message);
   }
   throw new Error("Real cross-Document-DB chat is not implemented yet");

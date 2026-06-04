@@ -40,7 +40,12 @@ export function ChatSessionList() {
             role="button"
             tabIndex={0}
             onClick={() => open(s.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && open(s.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                open(s.id);
+              }
+            }}
             className={`group flex items-center gap-2 px-2.5 h-8 rounded-lg text-[13px] cursor-pointer transition-colors duration-150 ${
               active ? "bg-primary-soft text-primary font-medium" : "text-ink-2 hover:bg-surface-muted hover:text-ink"
             }`}
@@ -54,7 +59,7 @@ export function ChatSessionList() {
                 e.stopPropagation();
                 deleteSession(s.id);
               }}
-              className="opacity-0 group-hover:opacity-100 text-ink-3 hover:text-rose-600 shrink-0 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-ink-3 hover:text-rose-600 shrink-0 transition-opacity"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
