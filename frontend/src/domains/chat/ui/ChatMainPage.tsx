@@ -131,7 +131,7 @@ export function ChatMainPage() {
 
         {isEmpty ? (
           /* New chat: centered, emphasized composer */
-          <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="flex-1 flex flex-col items-center justify-start px-6 pt-[16vh]">
             <div className="w-full max-w-2xl text-center">
               <h2 className="text-xl font-semibold text-ink tracking-tight">무엇을 도와드릴까요?</h2>
               <p className="text-sm text-ink-2 mt-2">
@@ -161,7 +161,7 @@ export function ChatMainPage() {
                 {messages.map((m) =>
                   m.role === "user" ? (
                     <div key={m.id} className="flex justify-end">
-                      <div className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-surface-muted text-ink rounded-2xl rounded-tr-md">
+                      <div className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md">
                         {m.text}
                       </div>
                     </div>
