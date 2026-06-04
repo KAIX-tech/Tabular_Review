@@ -9,9 +9,10 @@ domain and application layers free of infrastructure concerns.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 def _split_csv(raw: str | list[str]) -> list[str]:
@@ -34,7 +35,9 @@ class Settings(BaseSettings):
     # --- Docling document conversion ---
     docling_ocr_enabled: bool = Field(default=True, alias="DOCLING_OCR_ENABLED")
     docling_ocr_force_full_page: bool = Field(default=False, alias="DOCLING_OCR_FORCE_FULL_PAGE")
-    docling_ocr_langs: list[str] = Field(default_factory=lambda: ["eng", "kor"], alias="DOCLING_OCR_LANGS")
+    docling_ocr_langs: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["eng", "kor"], alias="DOCLING_OCR_LANGS"
+    )
     docling_ocr_fallback_on_decode_error: bool = Field(
         default=True, alias="DOCLING_OCR_FALLBACK_ON_DECODE_ERROR"
     )
@@ -46,7 +49,7 @@ class Settings(BaseSettings):
     docling_hf_trust_env: bool = Field(default=False, alias="DOCLING_HF_TRUST_ENV")
 
     # --- HTTP / CORS ---
-    cors_origins: list[str] = Field(
+    cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
             "http://localhost:3001",
