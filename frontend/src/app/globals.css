@@ -8,15 +8,15 @@
 :root {
   --canvas: 247 248 250;
   --surface: 255 255 255;
-  --surface-muted: 241 243 247;
-  --border: 230 232 238;
-  --border-strong: 214 218 227;
-  --ink: 11 18 32;
-  --ink-2: 91 100 114;
-  --ink-3: 138 147 162;
-  --primary: 79 70 229;
-  --primary-hover: 67 56 202;
-  --primary-soft: 238 240 255;
+  --surface-muted: 242 244 247;
+  --border: 229 231 237;
+  --border-strong: 213 217 226;
+  --ink: 17 20 28; /* near-black: solid CTAs, primary text */
+  --ink-2: 92 100 114;
+  --ink-3: 142 150 164;
+  --primary: 37 99 235; /* quiet blue accent: links, focus, selection */
+  --primary-hover: 29 78 216;
+  --primary-soft: 238 244 255;
 }
 
 @layer base {
@@ -46,8 +46,9 @@
   .tr-btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40;
   }
+  /* Solid CTA: near-black (premium neutral), reserved for the main action. */
   .tr-btn-primary {
-    @apply bg-primary text-white hover:bg-primary-hover shadow-soft;
+    @apply bg-ink text-white hover:bg-ink/90 shadow-soft;
   }
   .tr-btn-secondary {
     @apply bg-surface text-ink border border-border hover:bg-surface-muted hover:border-border-strong;
@@ -66,8 +67,9 @@
   .tr-nav-item {
     @apply flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-sm text-ink-2 transition-colors duration-150 hover:bg-surface-muted hover:text-ink;
   }
+  /* Quiet, neutral selection (no loud accent fill). */
   .tr-nav-item.is-active {
-    @apply bg-primary-soft text-primary font-medium hover:bg-primary-soft hover:text-primary;
+    @apply bg-surface-muted text-ink font-medium;
   }
 
   .tr-label {
@@ -75,7 +77,29 @@
   }
 
   .tr-input {
-    @apply w-full bg-surface-muted rounded-full py-2.5 px-4 text-sm text-ink placeholder:text-ink-3 transition focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface;
+    @apply w-full bg-surface-muted rounded-2xl py-3 px-4 text-sm text-ink placeholder:text-ink-3 transition focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface;
+  }
+
+  /* Soft status pills. */
+  .tr-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+  }
+  .tr-badge-neutral {
+    @apply bg-surface-muted text-ink-2;
+  }
+  .tr-badge-rose {
+    @apply bg-rose-50 text-rose-600;
+  }
+  .tr-badge-amber {
+    @apply bg-amber-50 text-amber-700;
+  }
+  .tr-badge-emerald {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+
+  /* Numbered citation chip. */
+  .tr-cite {
+    @apply inline-grid place-items-center w-5 h-5 rounded-full bg-surface-muted text-ink-2 text-[11px] tabular-nums align-middle transition-colors duration-150 hover:bg-primary-soft hover:text-primary;
   }
 }
 

@@ -22,7 +22,7 @@ export function DocumentDbRail() {
   return (
     <aside className="w-60 shrink-0 h-screen bg-surface border-r border-border flex flex-col">
       <Link href="/document-dbs" className="h-16 px-4 flex items-center gap-2.5 border-b border-border">
-        <span className="grid place-items-center w-8 h-8 rounded-lg bg-primary text-white shadow-soft">
+        <span className="grid place-items-center w-8 h-8 rounded-lg bg-ink text-white shadow-soft">
           <Table className="w-4 h-4" />
         </span>
         <span className="font-semibold text-ink tracking-tight">Tabular Review</span>

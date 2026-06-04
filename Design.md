@@ -26,11 +26,13 @@
 | `--ink` | `#0B1220` | 본문/제목 텍스트 |
 | `--ink-2` | `#5B6472` | 보조 텍스트 |
 | `--ink-3` | `#8A93A2` | 캡션/플레이스홀더 |
-| `--primary` | `#4F46E5` | 주 강조(인디고). 핵심 액션·활성 |
-| `--primary-hover` | `#4338CA` | primary hover |
-| `--primary-soft` | `#EEF0FF` | 활성 탭/배지 배경 |
+| `--primary` | `#2563EB` | **조용한 블루 액센트**: 링크·포커스 링·선택 강조 (남용 금지) |
+| `--primary-hover` | `#1D4ED8` | accent hover |
+| `--primary-soft` | `#EEF4FF` | accent soft 배경 (선택 인용 등) |
 
-**시맨틱** (희소하게): success `#059669` (emerald-600), warning `#D97706` (amber-600), danger `#E11D48` (rose-600).
+> **솔리드 핵심 액션 버튼(Run / 전송 / 열기 / 생성)은 `--ink`(니어-블랙)** 을 사용한다 (Legora 톤). 블루는 강조용 액센트로만.
+
+**시맨틱** (희소하게): success `#059669` (emerald-600), warning `#D97706` (amber-600), danger `#E11D48` (rose-600). 상태는 **소프트 파스텔 pill 배지**로 표기.
 
 **추출 신뢰도(Confidence)**: High = `#059669`, Medium = `#D97706`, Low = `#E11D48`. 점(dot)으로 표기.
 
@@ -66,7 +68,9 @@
 |---|---|
 | `.tr-card` | 흰 카드: `rounded-xl border border-border bg-surface shadow-soft` |
 | `.tr-btn` | 버튼 베이스(인라인 플렉스, radius, 포커스 링, transition) |
-| `.tr-btn-primary` | 주 액션: `bg-primary text-white hover:bg-primary-hover` |
+| `.tr-btn-primary` | 주 액션(솔리드): **니어-블랙** `bg-ink text-white` |
+| `.tr-badge(-neutral/rose/amber/emerald)` | 소프트 파스텔 상태 pill |
+| `.tr-cite` | 번호형 인용 칩(① ②) — 챗 답변 출처 |
 | `.tr-btn-secondary` | 보조: 흰 배경 + border, hover 채움 |
 | `.tr-btn-ghost` | 텍스트 버튼: hover 시 `surface-muted` |
 | `.tr-icon-btn` | 정사각 아이콘 버튼(36px) |
