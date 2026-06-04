@@ -24,7 +24,6 @@ import {
   ChevronDown,
   Download,
   FilePlus,
-  FileText,
   Loader2,
   Play,
   RefreshCw,
@@ -344,7 +343,6 @@ export const DocumentDbReviewPage: React.FC = () => {
 
   const sidebarData = getSidebarData();
   const currentModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
-  const isEmpty = documents.length === 0 && columns.length === 0;
 
   const sidebarWidthClass =
     sidebarMode === "none"
@@ -515,44 +513,25 @@ export const DocumentDbReviewPage: React.FC = () => {
         )}
 
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden p-6">
-          {isEmpty ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-slate-300 bg-white">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-full text-indigo-500">
-                <FileText className="w-7 h-7" />
-              </div>
-              <p className="mt-4 text-slate-700 font-medium">{dbName}에 문서가 없습니다</p>
-              <p className="mt-1 text-sm text-slate-400 max-w-sm">
-                문서를 추가하면 컬럼별로 추출해 표로 검토할 수 있습니다.
-              </p>
-              <button
-                type="button"
-                onClick={addDocument}
-                className="mt-5 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-md transition-colors active:scale-95"
-              >
-                <FilePlus className="w-4 h-4" />문서 추가
-              </button>
-            </div>
-          ) : (
-            <div className="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <DataGrid
-                documents={documents}
-                columns={columns}
-                results={results}
-                onAddColumn={(rect) => setAddColumnAnchor(rect)}
-                onEditColumn={handleEditColumn}
-                onColumnResize={handleColumnResize}
-                onCellClick={handleCellClick}
-                onDocClick={handleDocumentClick}
-                onRemoveDoc={handleRemoveDoc}
-                selectedCell={selectedCell}
-                isTextWrapEnabled={isTextWrapEnabled}
-                onDropFiles={(files) => processUploadedFiles(files)}
-                selectedDocIds={selectedDocIds}
-                onToggleDocSelection={handleToggleDocSelection}
-                onToggleAllDocSelection={handleToggleAllDocSelection}
-              />
-            </div>
-          )}
+          <div className="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <DataGrid
+              documents={documents}
+              columns={columns}
+              results={results}
+              onAddColumn={(rect) => setAddColumnAnchor(rect)}
+              onEditColumn={handleEditColumn}
+              onColumnResize={handleColumnResize}
+              onCellClick={handleCellClick}
+              onDocClick={handleDocumentClick}
+              onRemoveDoc={handleRemoveDoc}
+              selectedCell={selectedCell}
+              isTextWrapEnabled={isTextWrapEnabled}
+              onDropFiles={(files) => processUploadedFiles(files)}
+              selectedDocIds={selectedDocIds}
+              onToggleDocSelection={handleToggleDocSelection}
+              onToggleAllDocSelection={handleToggleAllDocSelection}
+            />
+          </div>
         </div>
 
         {addColumnAnchor && (
