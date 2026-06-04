@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChatSessionList } from "@/domains/chat";
 import { FileText, MessageSquare, Plus, Table } from "@/shared/ui/icons";
 import { useDocumentDbs } from "../api/document-db.hooks";
 
 /**
- * Left sidebar: a top-level "Chat" entry (chat across all Document DBs) plus the
- * Document DB (domain) switcher — the primary navigation in the flat IA.
+ * Left sidebar: a top-level "Chat" entry (chat across all Document DBs, expanding
+ * to New Chat + session history when active) plus the Document DB switcher.
  */
 export function DocumentDbRail() {
   const pathname = usePathname();
@@ -41,6 +42,9 @@ export function DocumentDbRail() {
           <span>Chat</span>
           <span className="ml-auto text-[10px] text-slate-400">전체 DB</span>
         </Link>
+
+        {/* When in Chat, the entry expands to New Chat + session history. */}
+        {onChat && <ChatSessionList />}
 
         <p className="px-2 pt-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
           Document DB

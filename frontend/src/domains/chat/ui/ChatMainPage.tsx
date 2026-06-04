@@ -5,7 +5,6 @@ import { Bot, FileText, Send, User, X } from "@/shared/ui/icons";
 import { sendChatMessage } from "../api/document-db-chat.api";
 import { useChatSessionsStore } from "../model/chat-sessions.store";
 import type { ChatSource } from "../model/types";
-import { ChatSessionList } from "./ChatSessionList";
 
 const SUGGESTED = [
   "MFN 조항이 가장 유리한 계약은?",
@@ -58,7 +57,6 @@ export function ChatMainPage() {
 
   return (
     <div className="flex h-full">
-      <ChatSessionList />
 
       <section className="flex-1 min-w-0 flex flex-col bg-slate-50">
         <header className="h-16 px-6 flex items-center gap-2 border-b border-slate-200 bg-white shrink-0">
