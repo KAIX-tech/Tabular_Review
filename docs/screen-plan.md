@@ -1,7 +1,8 @@
 # Tabular Review — UI/UX 화면기획서 (v0.1)
 
-> 작성일: 2026-06-04
+> 작성일: 2026-06-04 · 최종 갱신: 2026-06-05 (Next.js App Router + FSD 구조 반영, 목데이터 우선 구현 방침 추가)
 > 범위: Admin / 일반 유저 화면군의 정보구조(IA) + 화면별 레이아웃·구성요소·인터랙션
+> **구현 방침**: 백엔드 없이 **목데이터(mock)로 백엔드 응답을 대체**하여 UI/UX 컨셉을 먼저 구현·검증한다. 실제 백엔드 연동은 이후 단계. (§9 참고)
 > 제외: 로그인/인증/권한 라우팅 (역할은 진입 시 결정되어 있다고 가정), 챗 고도화(tool-calling·RAG)
 
 ---
@@ -68,7 +69,7 @@
 ```
 
 - **좌측 레일**: 워크스페이스(도메인) 목록 아이콘/이름. 현재 선택 강조. Admin은 하단에 "＋ 새 워크스페이스".
-- **우측 사이드바**: 현재 `App.tsx`의 애니메이션 사이드바 컨테이너 재사용 (none/verify/chat, 400px↔900px 확장).
+- **우측 사이드바**: `domains/workspace/ui/ReviewWorkspacePage.tsx`의 애니메이션 사이드바 컨테이너 재사용 (none/verify/chat, 400px↔900px 확장).
 
 ---
 
@@ -100,7 +101,7 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 
 ### A-1. 워크스페이스 상세 = Tabular Review 그리드
 
-**기존 `App.tsx` + `DataGrid.tsx`가 거의 그대로 대응.** 좌측 레일만 추가되는 형태.
+**현재 `domains/workspace/ui/ReviewWorkspacePage.tsx` + `domains/document-review/ui/DataGrid.tsx`가 거의 그대로 대응.** 좌측 레일만 추가되는 형태.
 
 ```
 ┌──────┬───────────────────────────────────────────────────────┬─────────┐
@@ -124,13 +125,13 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
   - 셀 클릭 → 우측 검증 사이드바(A-4). 문서명 클릭 → 문서 뷰어.
   - 드래그&드롭으로 문서 추가(현 `onDropFiles`).
 - **상태 표시**: 컬럼 추출 중 스피너, 변환 중 전체 오버레이("Converting Documents — Docling").
-- **기존 코드 매핑**: 이 화면 = 현재 `App.tsx`의 메인 + `DataGrid.tsx` 거의 그대로. 추가 작업은 좌측 레일과 "워크스페이스 컨텍스트"로 상태를 감싸는 것.
+- **코드 매핑**: 이 화면 = `domains/workspace/ui/ReviewWorkspacePage.tsx` + `domains/document-review/ui/DataGrid.tsx` 거의 그대로. 추가 작업은 좌측 레일과 "워크스페이스 컨텍스트"(Zustand 스토어)로 상태를 감싸는 것.
 
 ---
 
 ### A-2. 컬럼 관리 (추가 / 편집 / 라이브러리)
 
-기존 `AddColumnMenu.tsx` + `ColumnLibrary.tsx` 대응. 그리드 위 팝오버/모달.
+기존 `domains/document-review/ui/AddColumnMenu.tsx` + `ColumnLibrary.tsx` 대응. 그리드 위 팝오버/모달.
 
 ```
 컬럼 추가/편집 팝오버                      컬럼 라이브러리 모달
@@ -147,14 +148,14 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 ```
 
 - **컬럼 편집**: 이름 / 타입(text·number·date·boolean·list) / 자연어 프롬프트 / `AI 프롬프트 생성`(`generatePromptHelper`) / 삭제.
-- **라이브러리**: 저장된 템플릿을 카테고리별로 탐색 → 클릭 추가. Import/Export(localStorage 기반, 기존 `fileStorage.ts`).
+- **라이브러리**: 저장된 템플릿을 카테고리별로 탐색 → 클릭 추가. Import/Export(localStorage 기반, `domains/document-review/lib/column-library.ts`).
 - **Admin 전용** — 일반 유저에게는 컬럼 헤더의 `＋`/편집 진입점 자체를 숨긴다.
 
 ---
 
 ### A-3. 문서 업로드 / 관리
 
-`＋문서` 또는 드롭존. 기존 `DocumentUpload.tsx` / `documentProcessor.ts`.
+`＋문서` 또는 드롭존. `domains/document-review/ui/DocumentUpload.tsx` / `api/document-processor.ts`.
 
 ```
 ┌───────────────────────────────────────────┐
@@ -168,7 +169,7 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 └───────────────────────────────────────────┘
 ```
 
-- 업로드 → Docling 변환(`/convert`) → 마크다운으로 그리드에 행 추가.
+- 업로드 → Docling 변환(`/convert`, **목 단계에선 고정 마크다운 fixture 반환**) → 그리드에 행 추가.
 - 변환 진행/실패 표시(현재는 전체 오버레이 + alert → **문서별 진행/실패 행**으로 개선 권장).
 - 문서 관리: 그리드 행에서 제거(`handleRemoveDoc`), 다중 선택 → 선택 재실행.
 
@@ -176,7 +177,7 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 
 ### A-4. 검증 사이드바 (셀 인용 확인)
 
-기존 `VerificationSidebar.tsx`. 셀 클릭 시 우측에서 확장.
+기존 `domains/document-review/ui/VerificationSidebar.tsx`. 셀 클릭 시 우측에서 확장.
 
 ```
 ┌─────────────────────────────────┐
@@ -223,7 +224,7 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 ```
 
 - **좌측**: 도메인(워크스페이스) 목록 — 유저는 **읽기 전용으로 선택만**. 하단에 대화 기록(세션). (현재 챗 히스토리는 비저장 → **세션 저장 필요**, §7 참고)
-- **중앙 챗**: 기존 `ChatInterface.tsx` 확장. 답변에 **인라인 출처 칩**(문서명 + 페이지)을 붙여 클릭 시 우측 출처 패널/문서 뷰어로 연결. (현재는 출처 연결 없음 → 신규)
+- **중앙 챗**: 기존 `domains/chat/ui/ChatInterface.tsx` 확장. 답변에 **인라인 출처 칩**(문서명 + 페이지)을 붙여 클릭 시 우측 출처 패널/문서 뷰어로 연결. (현재는 출처 연결 없음 → 신규)
 - **상단 `그리드 보기`**: 현재 선택 도메인의 읽기전용 그리드(U-1)로 전환.
 - **빈 상태**: 추천 질문 칩 ("이 도메인에서 가장 흔한 조항은?", "계약일이 빠른 순서는?").
 - **입력**: 멀티라인, 전송(↑). (스트리밍은 후속 단계)
@@ -275,15 +276,15 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 
 ## 6. 공통 컴포넌트 & 상태
 
-| 컴포넌트 | 용도 | 기존 코드 |
+| 컴포넌트 | 용도 | 현재 위치 (FSD) |
 |---|---|---|
-| 좌측 워크스페이스 레일 | 도메인 전환 | **신규** |
-| Top Bar (모드별 액션) | 액션 노출 제어 | `App.tsx` 헤더 일부 |
-| DataGrid | 그리드(편집/읽기 모드 prop) | `DataGrid.tsx` (readOnly prop 추가) |
-| AddColumnMenu / ColumnLibrary | 컬럼 관리 (Admin) | 기존 |
-| VerificationSidebar | 인용/검증 (검증버튼 토글) | 기존 |
-| ChatInterface | 챗 (출처 칩 추가) | `ChatInterface.tsx` 확장 |
-| 문서 뷰어 | 원문+하이라이트 | 사이드바 로직 재사용 |
+| 좌측 워크스페이스 레일 | 도메인 전환 | **신규** → `domains/workspace/ui` |
+| Top Bar (모드별 액션) | 액션 노출 제어 | `domains/workspace/ui/ReviewWorkspacePage.tsx` 헤더 |
+| DataGrid | 그리드(편집/읽기 모드) | `domains/document-review/ui/DataGrid.tsx` — 콜백 유무로 readOnly 추론(페르소나) |
+| AddColumnMenu / ColumnLibrary | 컬럼 관리 (Admin) | `domains/document-review/ui/*` |
+| VerificationSidebar | 인용/검증 (검증버튼 토글) | `domains/document-review/ui/VerificationSidebar.tsx` |
+| ChatInterface | 챗 (출처 칩 추가) | `domains/chat/ui/ChatInterface.tsx` |
+| 문서 뷰어 | 원문+하이라이트 | 사이드바 하이라이트 로직 재사용 |
 
 **공통 상태 패턴** (모든 화면에 적용):
 - **로딩**: 변환 오버레이 / 셀 스피너 / 챗 타이핑 인디케이터(기존).
@@ -292,23 +293,74 @@ Admin 진입 시 첫 화면. 도메인=문서종류 카드 그리드.
 
 ---
 
-## 7. 기존 코드 대비 신규/변경 필요 (화면 관점)
+## 7. 신규/변경 필요 (화면 관점)
 
-기획을 구현으로 옮길 때 화면 측면에서 필요한 작업:
+기획을 구현으로 옮길 때 화면 측면에서 필요한 작업 (백엔드 의존 항목은 §9 목데이터로 우선 대체):
 
-1. **워크스페이스 레이어 신규** — 현재는 단일 프로젝트(메모리). "도메인=문서종류" 다중 워크스페이스 + 좌측 레일 + 전환. (저장 모델은 후속 설계)
-2. **역할 분기** — 같은 그리드/사이드바를 `readOnly`/`role` prop으로 편집 UI on/off. 라우팅은 제외했으므로 "모드 진입점"만 둘로.
+1. **워크스페이스 레이어 신규** — 현재는 단일 프로젝트(`ReviewWorkspacePage` 내 `useState`). "도메인=문서종류" 다중 워크스페이스 + 좌측 레일 + 전환을 **Zustand 스토어**로. (목 단계: mock 스토어/`localStorage`)
+2. **역할 분기** — 같은 그리드/사이드바를 **콜백 유무로 readOnly/interactive 추론**(페르소나 원칙). 라우팅은 route group `(admin)`/`(user)`로 진입점 분리(§8).
 3. **유저 챗 = 메인 레이아웃** — 챗을 사이드바가 아니라 **전체 화면 중앙**으로 승격(현재는 우측 400px 사이드바).
-4. **챗 출처 연결** — 답변 → 문서/페이지 인용 칩 → 뷰어. (현재 없음. 챗 고도화 전이라도 화면 슬롯은 미리 잡아둠)
-5. **챗 세션 저장** — 현재 unmount 시 소실. 대화 기록 목록(U-0 좌하단) 위해 필요.
-6. **검색바** — U-1 상단. 초기엔 클라이언트 필터, 후속에 의미검색.
+4. **챗 출처 연결** — 답변 → 문서/페이지 인용 칩 → 뷰어. (현재 없음 → mock 답변에 출처 fixture 포함)
+5. **챗 세션 저장** — 현재 unmount 시 소실. 대화 기록 목록(U-0 좌하단) 위해 필요. (목 단계: `localStorage`)
+6. **검색바** — U-1 상단. 목 단계: 클라이언트 필터, 후속: 의미검색(백엔드 `search`).
 
 ---
 
-## 8. 다음 단계 제안
+## 8. 라우팅 · FSD · 상태 매핑 (Next.js App Router)
 
-1. 이 기획을 바탕으로 **주요 3개 화면(A-0 워크스페이스 목록 / A-1 그리드 / U-0 챗 메인)의 고해상도 와이어프레임 or 실제 React 프로토타입** 작성.
-2. 워크스페이스 데이터 모델·라우팅 설계(이 문서의 IA를 코드 구조로).
-3. 이후 챗 고도화(tool-calling·RAG·스트리밍) — 별도 설계 문서.
+화면을 실제 라우트와 FSD 슬라이스로 옮기는 매핑. 인증은 제외했으므로 역할 진입점만 route group으로 분리한다.
 
-> 미해결/추후 결정: 워크스페이스 저장소(로컬 파일 유지 vs 서버 DB), 동시 편집, 검색 방식(키워드→의미검색 전환 시점).
+### 라우트 맵
+| 화면 | 라우트 | 비고 |
+|---|---|---|
+| A-0 워크스페이스 목록 | `app/(admin)/workspaces/page.tsx` | admin 진입점 |
+| A-1 그리드 | `app/(admin)/workspaces/[workspaceId]/page.tsx` | A-2~A-4는 이 화면 내 패널/사이드바 |
+| U-0 챗 메인 | `app/(user)/chat/page.tsx` | user 진입점(기본 랜딩) |
+| U-1 읽기전용 그리드 | `app/(user)/workspaces/[workspaceId]/page.tsx` | A-1 그리드 readOnly 재사용 |
+| U-2 문서 뷰어 | 사이드바/오버레이 (별도 라우트 아님) | |
+
+`app/`는 라우팅 전용 — 각 `page.tsx`는 도메인의 페이지 컴포넌트만 import한다. (현재는 `app/page.tsx` 단일 라우트가 `ReviewWorkspacePage`를 직접 렌더 중 → route group으로 분리 필요.)
+
+### FSD 배치
+- `domains/workspace` — 워크스페이스 목록·카드·좌측 레일·전환 상태 + 페이지 컴포넌트(`ui/WorkspaceListPage`, `ui/ReviewWorkspacePage`).
+- `domains/document-review` — 그리드/컬럼/검증/업로드/추출 (기존).
+- `domains/chat` — 챗 + 출처 칩 (기존).
+- `widgets/` — 도메인을 조합하지 **않는** 순수 레이아웃(3분할 셸 등). 도메인 Public API를 조합하면 widget이 아니라 workspace 도메인에 둔다(이 스킬 FSD에선 widget→domain import 금지).
+- `shared/ui` — 공통 프리미티브(빈 상태, 카드, 사이드바 셸 등).
+
+### 상태 · 데이터 레이어 (설치됨, 아직 미사용)
+- **Zustand** (Provider + selector) — 선택된 워크스페이스, 사이드바 모드, 역할(admin/user), 텍스트랩 등 클라이언트 UI 상태. `domains/*/model`.
+- **TanStack Query** — 변환/추출/챗/워크스페이스/검색 등 "서버" 호출. **목 단계에선 쿼리 함수가 mock을 반환**하고, 백엔드 연동 시 함수 본체만 교체한다.
+
+---
+
+## 9. 목데이터(Mock) 우선 구현 전략
+
+백엔드 없이 UI/UX 컨셉을 먼저 구현·검증한다. 모든 백엔드 응답을 목으로 대체하되, 경계를 한 곳에 모아 나중에 실제 API로 쉽게 교체한다.
+
+### 목으로 대체할 백엔드 경계
+| 실제 (후속) | 목 단계 대체 |
+|---|---|
+| `POST /convert` (Docling) | 고정 마크다운 fixture (`document-review/api/document-processor`에서 mock 분기) |
+| 셀 추출 (`/llm/chat/completions`) | 컬럼·문서별 미리 정의된 `ExtractionCell`(값·신뢰도·인용·페이지) fixture |
+| 챗 응답 | 시나리오형 mock 답변 + 출처 칩 fixture (인위적 지연으로 타이핑 인디케이터 확인) |
+| 워크스페이스 목록/CRUD | 메모리/`localStorage` 기반 mock 스토어 (도메인 카드 데이터) |
+| 문서 검색 (U-0/U-1) | 클라이언트 필터 + mock 결과 |
+
+### 구현 원칙
+- **단일 모킹 스위치**: `NEXT_PUBLIC_USE_MOCKS`(기본 true) 플래그로 mock/real 토글. API 함수(`*.api.ts`)가 플래그에 따라 fixture 또는 실제 fetch를 반환.
+- **fixture 위치**: 도메인별 `domains/<domain>/api/__mocks__` 또는 `config/`에 **타입 안전한** fixture(`ExtractionResult` 등)로 둔다. 기존 `SAMPLE_COLUMNS` / `generateSampleFiles`(샘플 사이드레터 8건)를 시드로 재사용.
+- **지연·에러 시뮬레이션**: mock에 인위적 지연/실패를 넣어 로딩·에러·빈 상태(§6)를 실제로 확인.
+- **경계 고정**: mock은 실제 API와 **동일한 타입·시그니처**를 반환 → 백엔드 준비 시 함수 본체만 교체, 화면 코드는 무변경.
+
+> 이 전략으로 §7의 백엔드 의존 항목(워크스페이스 저장·챗 출처·검색)을 백엔드 없이 화면에서 먼저 완성·검증할 수 있다.
+
+---
+
+## 10. 다음 단계 제안
+
+1. **목 기반으로 주요 3개 화면 구현**: A-0 워크스페이스 목록 / A-1 그리드 / U-0 챗 메인 + 좌측 레일 + 역할 route group. (모든 데이터는 fixture)
+2. 라우팅/FSD 슬라이스 스캐폴딩(§8) + Zustand 워크스페이스 스토어 + TanStack Query mock 쿼리(§9).
+3. UI/UX 확정 후 → 백엔드 bounded context 추가(`workspace`, `document_storage`, `search`)로 mock을 실제 API로 1:1 교체.
+
+> 추후 결정(백엔드 단계로 이연): 워크스페이스 저장소(다중 워크스페이스·역할 분리상 **서버 DB 유력**), 검색 방식(키워드→의미검색), 챗 tool-calling·RAG·스트리밍.
