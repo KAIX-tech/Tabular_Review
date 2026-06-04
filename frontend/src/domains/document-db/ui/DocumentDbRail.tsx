@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChatSessionList } from "@/domains/chat";
-import { FileText, FolderOpen, MessageSquare, Plus, Table } from "@/shared/ui/icons";
+import { FileText, FolderOpen, MessageSquare, Table } from "@/shared/ui/icons";
 import { useDocumentDbs } from "../api/document-db.hooks";
 
 /**
  * Left sidebar with two peer menu tabs at the same hierarchy:
  *  - Chat → expands to New Chat + session history (when active)
- *  - Document DB → expands to "새 Document DB" + the Document DB list (when active)
+ *  - Document DB → expands to the Document DB list (when active)
  */
 export function DocumentDbRail() {
   const pathname = usePathname();
@@ -55,12 +55,6 @@ export function DocumentDbRail() {
         </Link>
         {onDocs && (
           <div className="pl-3 pr-1 pb-1 space-y-0.5">
-            <button
-              type="button"
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />새 Document DB
-            </button>
             {isLoading &&
               [0, 1, 2].map((i) => <div key={i} className="h-8 mx-1 rounded-md bg-slate-100 animate-pulse" />)}
             {documentDbs?.map((db) => {
