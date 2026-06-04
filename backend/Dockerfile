@@ -1,5 +1,8 @@
-# Backend (FastAPI + Docling) for Tabular Review
+# Backend (FastAPI + Docling) for Tabular Review — uv-based.
 FROM python:3.11-slim
+
+# uv binary (pinned for reproducibility).
+COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -24,15 +27,23 @@ ENV PYTHONUNBUFFERED=1
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
 ENV HF_HUB_DISABLE_XET=1
 
-# Install Python dependencies first for layer caching.
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# uv settings: use system Python, copy (not hardlink) into the layer, compile bytecode.
+ENV UV_PYTHON_DOWNLOADS=never
+ENV UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+# Install dependencies from the lockfile first (cached unless deps change).
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --python 3.11
 
 # Application code (the `app` package and prefetch scripts).
 COPY app ./app
 COPY scripts ./scripts
 
+# Put the project venv on PATH so `uvicorn` / `python` resolve to it.
+ENV PATH="/app/.venv/bin:$PATH"
+
 EXPOSE 8000
 
-# Run the FastAPI app factory via uvicorn.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -56,14 +56,12 @@ The backend is required for document conversion. The helper script creates a vir
 ./start-backend.sh
 ```
 
-Or manually:
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). Or manually:
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 API docs are then available at `http://localhost:8000/docs`.

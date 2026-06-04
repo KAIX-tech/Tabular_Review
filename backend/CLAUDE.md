@@ -74,19 +74,28 @@ Never read `os.environ` outside it. Key vars: `VLLM_BASE_URL`, `VLLM_API_KEY`
 (`EMPTY` ⇒ no auth header), `VLLM_MODEL`, `DOCLING_OCR_*`, `DOCLING_PDF_BACKEND`,
 `DOCLING_HF_DISABLE_SSL_VERIFY`, `CORS_ORIGINS`. See `../.env.example`.
 
+## Dependencies
+
+Managed with **uv**: `pyproject.toml` declares deps, `uv.lock` pins the full
+resolved tree (committed). `torch`/`torchvision` resolve to CPU wheels from the
+PyTorch CPU index on Linux (small Docker image) and to the default MPS-capable
+wheels on macOS. To change deps, edit `pyproject.toml` then run `uv lock`.
+
 ## Commands
 
 ```bash
-# Local run (creates venv, installs, runs uvicorn; MPS on macOS)
+# Local run (uv syncs .venv from the lockfile, runs uvicorn; MPS on macOS)
 ../start-backend.sh
 
-# Or manually
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+# Or manually with uv
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
 
 # Prefetch Docling models (offline/air-gapped installs)
-python scripts/download_docling_models.py
+uv run python scripts/download_docling_models.py
+
+# Update the lockfile after editing pyproject.toml
+uv lock
 
 # Syntax check without heavy deps
 python -m compileall -q app
