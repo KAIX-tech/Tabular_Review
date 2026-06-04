@@ -44,7 +44,7 @@ const MODELS = [
   { id: ENV.llmModel, name: 'GLM-5', description: 'On-prem vLLM', icon: Brain },
 ];
 
-export const ReviewWorkspacePage: React.FC = () => {
+export const DocumentDbReviewPage: React.FC = () => {
   // State
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
   const [projectName, setProjectName] = useState('Untitled Project');

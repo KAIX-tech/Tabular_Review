@@ -45,4 +45,5 @@ export {
   RefreshCw,
   User,
   Send,
+  Settings,
 } from "lucide-react";
