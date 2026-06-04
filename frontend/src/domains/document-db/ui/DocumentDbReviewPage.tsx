@@ -34,7 +34,7 @@ import { useDocumentDb } from "../api/document-db.hooks";
 
 const MODELS = [{ id: ENV.llmModel, name: "GLM-5", description: "On-prem vLLM", icon: Brain }];
 
-/** A-1: the Tabular Review grid for a single Document DB. */
+/** A-1: the Kalex grid for a single Document DB. */
 export const DocumentDbReviewPage: React.FC = () => {
   const params = useParams<{ dbId: string }>();
   const { data: db } = useDocumentDb(params?.dbId ?? "");
@@ -367,7 +367,7 @@ export const DocumentDbReviewPage: React.FC = () => {
       {/* Page header */}
       <header className="h-16 px-6 flex items-center justify-between border-b border-border bg-surface shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="text-sm text-ink-3 shrink-0 hidden lg:inline">Tabular Review</span>
+          <span className="text-sm text-ink-3 shrink-0 hidden lg:inline">Kalex</span>
           <span className="text-ink-3 shrink-0 hidden lg:inline">/</span>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-ink truncate leading-tight">{dbName}</h1>

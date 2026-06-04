@@ -27,7 +27,7 @@ const defaultModel = ENV.llmModel;
 const llmTimeoutMs = ENV.llmTimeoutMs;
 
 export const MODEL_IDENTITY_INSTRUCTION =
-  "If asked about your model, provider, or identity, say you are the on-prem LLM configured for this Tabular Review deployment. Do not claim to be Claude, Gemini, ChatGPT, or any other hosted model unless that identity is explicitly provided by the deployment configuration.";
+  "If asked about your model, provider, or identity, say you are the on-prem LLM configured for this Kalex deployment. Do not claim to be Claude, Gemini, ChatGPT, or any other hosted model unless that identity is explicitly provided by the deployment configuration.";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

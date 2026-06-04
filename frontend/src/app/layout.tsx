@@ -3,7 +3,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tabular Review",
+  title: "Kalex",
   description:
     "An AI-powered tabular review tool. Ingest unstructured documents, define dynamic extraction columns, and query your data with an integrated analyst chat.",
 };
