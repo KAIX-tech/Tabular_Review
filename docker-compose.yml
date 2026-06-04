@@ -1,12 +1,12 @@
-# Docker Compose automatically loads .env file in the same directory
-# Edit .env file to configure environment variables
+# Docker Compose automatically loads the .env file in this directory.
+# Copy .env.example to .env and adjust values before running.
 
 services:
-  # Backend service for document processing
+  # Backend: FastAPI + Docling document conversion + vLLM proxy.
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: tabular-review-backend
     restart: unless-stopped
     ports:
@@ -16,7 +16,6 @@ services:
       - PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
       - LANG=${LANG:-C.UTF-8}
       - LC_ALL=${LC_ALL:-C.UTF-8}
-      - VITE_API_URL=${VITE_API_URL:-http://10.10.190.4:18001}
       - VLLM_BASE_URL=${VLLM_BASE_URL:-http://10.10.190.10:15006/v1}
       - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
       - VLLM_MODEL=${VLLM_MODEL:-glm-5}
@@ -37,15 +36,15 @@ services:
     networks:
       - tabular-review-network
 
-  # Frontend service for React application
+  # Frontend: Next.js App Router app.
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://10.10.190.4:18001}
-        VITE_LLM_MODEL: ${VITE_LLM_MODEL:-glm-5}
-        VITE_LLM_TIMEOUT_MS: ${VITE_LLM_TIMEOUT_MS:-120000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18001}
+        NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL:-glm-5}
+        NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
     container_name: tabular-review-frontend
     restart: unless-stopped
     depends_on:
@@ -53,9 +52,9 @@ services:
     ports:
       - "13001:3000"
     environment:
-      - VITE_API_URL=${VITE_API_URL:-http://10.10.190.4:18001}
-      - VITE_LLM_MODEL=${VITE_LLM_MODEL:-glm-5}
-      - VITE_LLM_TIMEOUT_MS=${VITE_LLM_TIMEOUT_MS:-120000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18001}
+      - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL:-glm-5}
+      - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
       - NODE_ENV=${NODE_ENV:-production}
     networks:
       - tabular-review-network
