@@ -9,7 +9,7 @@ export function KalexLogo({ className = "" }: { className?: string }) {
     <span className={`flex flex-col leading-none ${className}`}>
       <span className="text-[15px] font-semibold tracking-tight text-ink">Kalex</span>
       <span className="mt-1.5 text-[10px] tracking-wide text-ink-3 whitespace-nowrap">
-        Kim &amp; Chang AI Legal Explorer
+        K&amp;C AI Legal Explorer
       </span>
     </span>
   );
