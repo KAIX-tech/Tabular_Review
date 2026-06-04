@@ -1,0 +1,38 @@
+[project]
+name = "tabular-review-backend"
+version = "0.1.0"
+description = "FastAPI + Docling backend for Tabular Review (DDD, ports & adapters)"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "pydantic-settings",
+    "torch==2.5.1",
+    "torchvision==0.20.1",
+    # transformers 5.x requires a torch build exposing float8_e8m0fnu (torch >= 2.7),
+    # which the torch 2.5.1 pin does not provide. Keep transformers on 4.x.
+    "transformers<5",
+    "docling",
+    "httpx",
+    "requests",
+]
+
+[dependency-groups]
+dev = []
+
+[tool.uv]
+# This is an application, not a library — don't build/install the root package.
+package = false
+
+# Pull torch/torchvision CPU wheels on Linux (the Docker target) to avoid the
+# multi-GB CUDA stack. On macOS, resolve from the default index so the MPS-capable
+# wheels are used (start-backend.sh enables MPS on Apple Silicon).
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
