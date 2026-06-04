@@ -53,7 +53,7 @@ export function DocumentDbRail() {
                   key={db.id}
                   href={`/document-dbs/${db.id}`}
                   className={`flex items-center gap-2 px-2.5 h-8 rounded-lg text-[13px] transition-colors duration-150 ${
-                    active ? "bg-surface-muted text-ink font-medium" : "text-ink-2 hover:bg-surface-muted hover:text-ink"
+                    active ? "bg-primary-soft text-primary font-medium" : "text-ink-2 hover:bg-surface-muted hover:text-ink"
                   }`}
                 >
                   <span className="truncate flex-1">{db.name}</span>

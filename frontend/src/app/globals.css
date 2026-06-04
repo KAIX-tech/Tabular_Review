@@ -67,9 +67,9 @@
   .tr-nav-item {
     @apply flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-sm text-ink-2 transition-colors duration-150 hover:bg-surface-muted hover:text-ink;
   }
-  /* Quiet, neutral selection (no loud accent fill). */
+  /* Active selection: soft blue accent (matches chat sessions). */
   .tr-nav-item.is-active {
-    @apply bg-surface-muted text-ink font-medium;
+    @apply bg-primary-soft text-primary font-medium;
   }
 
   .tr-label {

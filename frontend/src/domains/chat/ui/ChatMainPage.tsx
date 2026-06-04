@@ -65,6 +65,7 @@ function SourceCitations({
         <button
           key={`${src.documentName}-${i}`}
           type="button"
+          data-cite
           onClick={() => onSelect(src)}
           title={`${src.documentDb} · ${src.documentName} p.${src.page}`}
           className={`tr-cite ${active === src ? "bg-primary-soft text-primary" : ""}`}
@@ -89,10 +90,31 @@ export function ChatMainPage() {
   const [source, setSource] = useState<ChatSource | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isTyping]);
+
+  // Close the source drawer on Escape or a click outside it (citation chips switch instead).
+  useEffect(() => {
+    if (!panelOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPanelOpen(false);
+    };
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (drawerRef.current?.contains(target)) return;
+      if (target.closest?.("[data-cite]")) return;
+      setPanelOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [panelOpen]);
 
   const openSource = (s: ChatSource) => {
     setSource(s);
@@ -138,7 +160,7 @@ export function ChatMainPage() {
         </header>
 
         {isEmpty ? (
-          <div className="flex-1 flex flex-col items-center justify-start px-6 pt-[16vh]">
+          <div className="flex-1 flex flex-col items-center justify-start px-6 pt-[24vh]">
             <div className="w-full max-w-2xl text-center">
               <h2 className="text-xl font-semibold text-ink tracking-tight">무엇을 도와드릴까요?</h2>
               <p className="text-sm text-ink-2 mt-2">
@@ -206,8 +228,9 @@ export function ChatMainPage() {
         )}
       </section>
 
-      {/* Source citation drawer — slides in over the content (no reflow). */}
+      {/* Source citation drawer — slides in over the content (no reflow). Esc / outside click closes. */}
       <aside
+        ref={drawerRef}
         className={`absolute top-0 right-0 h-full w-[360px] bg-surface border-l border-border shadow-popover flex flex-col transition-transform duration-300 ease-out ${
           panelOpen ? "translate-x-0" : "translate-x-full"
         }`}
