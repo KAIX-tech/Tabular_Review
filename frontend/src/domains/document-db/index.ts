@@ -5,4 +5,3 @@ export { DocumentDbReviewPage } from "./ui/DocumentDbReviewPage";
 export { DocumentDbRail } from "./ui/DocumentDbRail";
 export { DocumentDbListPage } from "./ui/DocumentDbListPage";
 export { useDocumentDbs, useDocumentDb, documentDbKeys } from "./api/document-db.hooks";
-export { useDocumentDbUiStore } from "./model/document-db-ui.store";

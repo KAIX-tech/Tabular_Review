@@ -1,26 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FileText, Plus, Table } from "@/shared/ui/icons";
 import { useDocumentDbs } from "../api/document-db.hooks";
-import { useDocumentDbUiStore } from "../model/document-db-ui.store";
 
-/** Left rail: Document DB (domain) switcher — the primary navigation in the flat IA. */
+/**
+ * Left rail: Document DB (domain) switcher — the primary navigation in the flat IA.
+ * Surface is derived from the route: "/chat/*" is the user surface (links to chat),
+ * everything else is the admin surface (links to the review grid).
+ */
 export function DocumentDbRail() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: documentDbs, isLoading } = useDocumentDbs();
-  const role = useDocumentDbUiStore((s) => s.role);
-  const setRole = useDocumentDbUiStore((s) => s.setRole);
 
-  // Active Document DB id is derived from the route (/document-dbs/<id>).
-  const activeId = pathname.match(/\/document-dbs\/([^/]+)/)?.[1] ?? null;
-  const onList = pathname === "/document-dbs";
+  const surface = pathname.startsWith("/chat") ? "user" : "admin";
+  const activeId = pathname.match(/\/(?:document-dbs|chat)\/([^/]+)/)?.[1] ?? null;
+  const homeHref = surface === "user" ? "/chat" : "/document-dbs";
+  const onList = pathname === homeHref;
+  const dbHref = (id: string) => (surface === "user" ? `/chat/${id}` : `/document-dbs/${id}`);
+
+  const switchSurface = (target: "admin" | "user") => {
+    if (target === "admin") {
+      router.push("/document-dbs");
+    } else {
+      const id = activeId ?? documentDbs?.[0]?.id;
+      router.push(id ? `/chat/${id}` : "/chat");
+    }
+  };
 
   return (
     <aside className="w-60 shrink-0 h-screen border-r border-slate-200 bg-white flex flex-col">
       <Link
-        href="/document-dbs"
+        href={homeHref}
         className={`h-16 px-4 flex items-center gap-2 border-b border-slate-100 ${
           onList ? "bg-slate-50" : "hover:bg-slate-50"
         }`}
@@ -47,7 +60,7 @@ export function DocumentDbRail() {
           return (
             <Link
               key={db.id}
-              href={`/document-dbs/${db.id}`}
+              href={dbHref(db.id)}
               className={`flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors ${
                 active
                   ? "bg-indigo-50 text-indigo-700 font-semibold"
@@ -62,7 +75,7 @@ export function DocumentDbRail() {
         })}
       </nav>
 
-      {role === "admin" && (
+      {surface === "admin" && (
         <div className="p-2 border-t border-slate-100">
           <button
             type="button"
@@ -73,19 +86,19 @@ export function DocumentDbRail() {
         </div>
       )}
 
-      {/* Dev-only role switch (auth is out of scope for the prototype). */}
+      {/* Dev-only surface switch (auth is out of scope for the prototype). */}
       <div className="p-2 border-t border-slate-100 flex items-center gap-1 text-[11px]">
-        <span className="text-slate-400 px-1">역할</span>
-        {(["admin", "user"] as const).map((r) => (
+        <span className="text-slate-400 px-1">화면</span>
+        {(["admin", "user"] as const).map((s) => (
           <button
-            key={r}
+            key={s}
             type="button"
-            onClick={() => setRole(r)}
+            onClick={() => switchSurface(s)}
             className={`flex-1 px-2 py-1 rounded transition-colors ${
-              role === r ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              surface === s ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
             }`}
           >
-            {r}
+            {s === "admin" ? "관리자" : "사용자"}
           </button>
         ))}
       </div>
