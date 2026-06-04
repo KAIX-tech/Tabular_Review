@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  # Exclude vendored engineering skill docs (.claude/skills/**) from review.
+  # They are tooling/reference material, not application code, and adding them
+  # in one commit pushes the PR over CodeRabbit's per-PR file limit.
+  path_filters:
+    - "!.claude/**"
