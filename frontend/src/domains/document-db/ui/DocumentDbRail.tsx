@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChatSessionList } from "@/domains/chat";
 import { FolderOpen, MessageSquare } from "@/shared/ui/icons";
+import { KalexLogo } from "@/shared/ui/KalexLogo";
 import { useDocumentDbs } from "../api/document-db.hooks";
 
 /**
@@ -22,7 +23,7 @@ export function DocumentDbRail() {
   return (
     <aside className="w-60 shrink-0 h-screen bg-surface border-r border-border flex flex-col">
       <Link href="/document-dbs" className="h-16 px-5 flex items-center border-b border-border">
-        <span className="text-[15px] font-semibold text-ink tracking-tight">Kalex</span>
+        <KalexLogo />
       </Link>
 
       <nav className="flex-1 overflow-y-auto p-2.5 space-y-0.5">
