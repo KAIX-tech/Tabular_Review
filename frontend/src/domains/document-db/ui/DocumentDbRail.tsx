@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChatSessionList } from "@/domains/chat";
-import { FileText, FolderOpen, MessageSquare, Table } from "@/shared/ui/icons";
+import { FolderOpen, MessageSquare } from "@/shared/ui/icons";
 import { useDocumentDbs } from "../api/document-db.hooks";
 
 /**
@@ -21,11 +21,8 @@ export function DocumentDbRail() {
 
   return (
     <aside className="w-60 shrink-0 h-screen bg-surface border-r border-border flex flex-col">
-      <Link href="/document-dbs" className="h-16 px-4 flex items-center gap-2.5 border-b border-border">
-        <span className="grid place-items-center w-8 h-8 rounded-lg bg-ink text-white">
-          <Table className="w-4 h-4" strokeWidth={1.75} />
-        </span>
-        <span className="font-semibold text-ink tracking-tight">Tabular Review</span>
+      <Link href="/document-dbs" className="h-16 px-5 flex items-center border-b border-border">
+        <span className="text-[15px] font-semibold text-ink tracking-tight">Tabular Review</span>
       </Link>
 
       <nav className="flex-1 overflow-y-auto p-2.5 space-y-0.5">
@@ -46,7 +43,7 @@ export function DocumentDbRail() {
           )}
         </Link>
         {onDocs && (
-          <div className="pl-3.5 pr-1 py-0.5 space-y-0.5">
+          <div className="pl-4 pr-1 py-0.5 space-y-0.5">
             {isLoading &&
               [0, 1, 2].map((i) => <div key={i} className="h-8 mx-1 rounded-lg bg-surface-muted animate-pulse" />)}
             {documentDbs?.map((db) => {
@@ -55,11 +52,10 @@ export function DocumentDbRail() {
                 <Link
                   key={db.id}
                   href={`/document-dbs/${db.id}`}
-                  className={`flex items-center gap-2.5 px-2.5 h-8 rounded-lg text-[13px] transition-colors duration-150 ${
+                  className={`flex items-center gap-2 px-2.5 h-8 rounded-lg text-[13px] transition-colors duration-150 ${
                     active ? "bg-surface-muted text-ink font-medium" : "text-ink-2 hover:bg-surface-muted hover:text-ink"
                   }`}
                 >
-                  <FileText className="w-3.5 h-3.5 shrink-0 text-ink-3" strokeWidth={1.75} />
                   <span className="truncate flex-1">{db.name}</span>
                   <span className="text-[11px] text-ink-3 tabular-nums">{db.documentCount}</span>
                 </Link>

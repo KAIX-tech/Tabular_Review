@@ -21,7 +21,6 @@ import { ENV } from "@/shared/config/env";
 import type { SidebarMode } from "@/shared/types/view";
 import {
   Brain,
-  FileText,
   ChevronDown,
   Download,
   FilePlus,
@@ -370,9 +369,6 @@ export const DocumentDbReviewPage: React.FC = () => {
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <span className="text-sm text-ink-3 shrink-0 hidden lg:inline">Tabular Review</span>
           <span className="text-ink-3 shrink-0 hidden lg:inline">/</span>
-          <span className="grid place-items-center w-6 h-6 rounded-md bg-ink text-white shrink-0">
-            <FileText className="w-3.5 h-3.5" />
-          </span>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-ink truncate leading-tight">{dbName}</h1>
             <p className="text-[11px] text-ink-3 leading-tight whitespace-nowrap">

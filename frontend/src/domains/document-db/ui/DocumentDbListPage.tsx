@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FileText, MoreHorizontal, Plus } from "@/shared/ui/icons";
+import { MoreHorizontal, Plus } from "@/shared/ui/icons";
 import { useDocumentDbs } from "../api/document-db.hooks";
 
 const formatDate = (iso: string) =>
@@ -28,7 +28,7 @@ export function DocumentDbListPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-32 tr-card animate-pulse" />
+              <div key={i} className="h-28 tr-card animate-pulse" />
             ))}
           </div>
         ) : !documentDbs || documentDbs.length === 0 ? (
@@ -55,17 +55,12 @@ export function DocumentDbListPage() {
                   <MoreHorizontal className="w-4 h-4" strokeWidth={1.75} />
                 </button>
 
-                <div className="flex items-center gap-3">
-                  <span className="grid place-items-center w-9 h-9 rounded-lg bg-surface-muted text-ink-3 shrink-0">
-                    <FileText className="w-4 h-4" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0 pr-6">
-                    <h2 className="font-semibold text-ink truncate leading-tight">{db.name}</h2>
-                    {db.description && <p className="text-xs text-ink-3 truncate mt-0.5">{db.description}</p>}
-                  </div>
+                <div className="pr-6">
+                  <h2 className="font-semibold text-ink truncate leading-tight">{db.name}</h2>
+                  {db.description && <p className="text-[13px] text-ink-3 truncate mt-1">{db.description}</p>}
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-xs text-ink-3">
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-xs text-ink-3">
                   <span>
                     <span className="text-ink-2 font-medium tabular-nums">{db.documentCount}</span> 문서
                     <span className="mx-1.5 text-border-strong">·</span>
