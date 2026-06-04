@@ -354,7 +354,7 @@ export const DocumentDbReviewPage: React.FC = () => {
   const addDocument = () => !isConverting && fileInputRef.current?.click();
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 text-slate-900">
+    <div className="flex flex-col h-full bg-canvas text-ink">
       <input
         type="file"
         ref={fileInputRef}
@@ -365,10 +365,10 @@ export const DocumentDbReviewPage: React.FC = () => {
       />
 
       {/* Page header */}
-      <header className="h-16 px-6 flex items-center justify-between border-b border-slate-200 bg-white shrink-0">
+      <header className="h-16 px-6 flex items-center justify-between border-b border-border bg-surface shrink-0">
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-slate-800 truncate leading-tight">{dbName}</h1>
-          <p className="text-xs text-slate-500">
+          <h1 className="text-base font-bold text-ink truncate leading-tight">{dbName}</h1>
+          <p className="text-xs text-ink-2">
             문서 {documents.length} · 컬럼 {columns.length}
           </p>
         </div>
@@ -378,13 +378,13 @@ export const DocumentDbReviewPage: React.FC = () => {
             type="button"
             onClick={addDocument}
             disabled={isConverting}
-            className={`flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-xs font-semibold rounded-md transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-surface-muted text-ink-2 border border-border text-xs font-semibold rounded-lg transition-colors ${
               isConverting ? "opacity-70 cursor-wait" : ""
             }`}
           >
             {isConverting ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
                 <span>변환 중…</span>
               </>
             ) : (
@@ -399,10 +399,10 @@ export const DocumentDbReviewPage: React.FC = () => {
             type="button"
             onClick={() => setIsTextWrapEnabled((v) => !v)}
             title="줄바꿈 토글"
-            className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold rounded-md transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold rounded-lg transition-colors ${
               isTextWrapEnabled
-                ? "bg-indigo-50 text-indigo-600 border-indigo-200"
-                : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200"
+                ? "bg-primary-soft text-primary border-primary/30"
+                : "bg-surface hover:bg-surface-muted text-ink-2 border-border"
             }`}
           >
             <WrapText className="w-3.5 h-3.5" />
@@ -413,12 +413,12 @@ export const DocumentDbReviewPage: React.FC = () => {
             onClick={handleExportCSV}
             disabled={documents.length === 0}
             title="CSV 내보내기"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-xs font-semibold rounded-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-surface-muted text-ink-2 border border-border text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-6 w-px bg-slate-200 mx-1" />
+          <div className="h-6 w-px bg-border mx-1" />
 
           {/* Model selector */}
           <div className="relative">
@@ -426,8 +426,8 @@ export const DocumentDbReviewPage: React.FC = () => {
               type="button"
               onClick={() => !isProcessing && setIsModelMenuOpen((v) => !v)}
               disabled={isProcessing}
-              className={`flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100 transition-all ${
-                !isProcessing ? "hover:bg-indigo-100 active:scale-95" : "opacity-60 cursor-not-allowed"
+              className={`flex items-center gap-2 px-3 py-1.5 bg-primary-soft text-primary rounded-lg border border-primary/20 transition-colors ${
+                !isProcessing ? "hover:bg-primary-soft" : "opacity-60 cursor-not-allowed"
               }`}
             >
               <currentModel.icon className="w-3.5 h-3.5" />
@@ -437,7 +437,7 @@ export const DocumentDbReviewPage: React.FC = () => {
             {isModelMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsModelMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-50">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-xl shadow-popover border border-border p-1 z-50">
                   {MODELS.map((model) => (
                     <button
                       key={model.id}
@@ -447,10 +447,10 @@ export const DocumentDbReviewPage: React.FC = () => {
                         setIsModelMenuOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition-colors ${
-                        selectedModel === model.id ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-50 text-slate-700"
+                        selectedModel === model.id ? "bg-primary-soft text-primary" : "hover:bg-surface-muted text-ink-2"
                       }`}
                     >
-                      <div className={`p-1.5 rounded-md ${selectedModel === model.id ? "bg-white shadow-sm" : "bg-slate-100"}`}>
+                      <div className={`p-1.5 rounded-lg ${selectedModel === model.id ? "bg-surface shadow-soft" : "bg-surface-muted"}`}>
                         <model.icon className="w-4 h-4" />
                       </div>
                       <div>
@@ -469,7 +469,7 @@ export const DocumentDbReviewPage: React.FC = () => {
             <button
               type="button"
               onClick={handleStopExtraction}
-              className="flex items-center gap-2 px-4 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold rounded-md transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold rounded-lg transition-colors"
             >
               <Square className="w-3.5 h-3.5 fill-current" />중지
             </button>
@@ -478,7 +478,7 @@ export const DocumentDbReviewPage: React.FC = () => {
               type="button"
               onClick={handleRerunSelected}
               disabled={columns.length === 0}
-              className="flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-md transition-all active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className="w-3.5 h-3.5" />재실행 ({selectedDocIds.size})
             </button>
@@ -487,7 +487,7 @@ export const DocumentDbReviewPage: React.FC = () => {
               type="button"
               onClick={handleRunAnalysis}
               disabled={documents.length === 0 || columns.length === 0}
-              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md transition-all active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play className="w-3.5 h-3.5 fill-current" />추출 실행
             </button>
@@ -498,22 +498,22 @@ export const DocumentDbReviewPage: React.FC = () => {
       {/* Body */}
       <main className="flex-1 flex overflow-hidden relative">
         {isConverting && (
-          <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
-            <div className="bg-white p-8 rounded-2xl shadow-2xl border border-indigo-100 flex flex-col items-center max-w-md text-center">
+          <div className="absolute inset-0 z-50 bg-surface/80 backdrop-blur-sm flex flex-col items-center justify-center">
+            <div className="bg-surface p-8 rounded-2xl shadow-2xl border border-primary/20 flex flex-col items-center max-w-md text-center">
               <div className="relative mb-6">
-                <div className="absolute inset-0 bg-indigo-100 rounded-full animate-ping opacity-75" />
-                <div className="relative bg-indigo-50 p-4 rounded-full">
-                  <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-75" />
+                <div className="relative bg-primary-soft p-4 rounded-full">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">문서 변환 중</h3>
-              <p className="text-slate-500">로컬 Docling 엔진으로 형식과 구조를 보존합니다…</p>
+              <h3 className="text-xl font-bold text-ink mb-2">문서 변환 중</h3>
+              <p className="text-ink-2">로컬 Docling 엔진으로 형식과 구조를 보존합니다…</p>
             </div>
           </div>
         )}
 
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden p-6">
-          <div className="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
             <DataGrid
               documents={documents}
               columns={columns}
@@ -553,7 +553,7 @@ export const DocumentDbReviewPage: React.FC = () => {
         />
 
         <div
-          className={`transition-all duration-300 ease-in-out border-l border-slate-200 bg-white shadow-xl z-30 relative ${sidebarWidthClass}`}
+          className={`transition-colors duration-300 ease-in-out border-l border-border bg-surface shadow-popover z-30 relative ${sidebarWidthClass}`}
         >
           <div className="w-full h-full absolute right-0 top-0 flex flex-col">
             {sidebarMode === "verify" && sidebarData && (

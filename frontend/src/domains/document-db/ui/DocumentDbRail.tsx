@@ -19,57 +19,51 @@ export function DocumentDbRail() {
   const onChat = pathname.startsWith("/chat");
   const onDocs = pathname.startsWith("/document-dbs");
 
-  const tabClass = (active: boolean) =>
-    `flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors ${
-      active ? "bg-indigo-50 text-indigo-700 font-semibold" : "text-slate-700 hover:bg-slate-50"
-    }`;
-
   return (
-    <aside className="w-60 shrink-0 h-screen border-r border-slate-200 bg-white flex flex-col">
-      <Link
-        href="/document-dbs"
-        className="h-16 px-4 flex items-center gap-2 border-b border-slate-100 hover:bg-slate-50"
-      >
-        <div className="p-1.5 bg-indigo-600 rounded-md text-white">
+    <aside className="w-60 shrink-0 h-screen bg-surface border-r border-border flex flex-col">
+      <Link href="/document-dbs" className="h-16 px-4 flex items-center gap-2.5 border-b border-border">
+        <span className="grid place-items-center w-8 h-8 rounded-lg bg-primary text-white shadow-soft">
           <Table className="w-4 h-4" />
-        </div>
-        <span className="font-bold text-slate-800 tracking-tight">Tabular Review</span>
+        </span>
+        <span className="font-semibold text-ink tracking-tight">Tabular Review</span>
       </Link>
 
-      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto p-2.5 space-y-0.5">
         {/* Chat tab */}
-        <Link href="/chat" className={tabClass(onChat)}>
-          <MessageSquare className={`w-4 h-4 shrink-0 ${onChat ? "text-indigo-600" : "text-slate-400"}`} />
+        <Link href="/chat" className={`tr-nav-item ${onChat ? "is-active" : ""}`}>
+          <MessageSquare className="w-4 h-4 shrink-0" />
           <span>Chat</span>
-          <span className="ml-auto text-[10px] text-slate-400">전체 DB</span>
+          <span className="ml-auto text-[10px] text-ink-3">전체 DB</span>
         </Link>
         {onChat && <ChatSessionList />}
 
         {/* Document DB tab */}
-        <Link href="/document-dbs" className={`mt-1 ${tabClass(onDocs)}`}>
-          <FolderOpen className={`w-4 h-4 shrink-0 ${onDocs ? "text-indigo-600" : "text-slate-400"}`} />
+        <Link href="/document-dbs" className={`tr-nav-item mt-1 ${onDocs ? "is-active" : ""}`}>
+          <FolderOpen className="w-4 h-4 shrink-0" />
           <span>Document DB</span>
           {documentDbs && (
-            <span className="ml-auto text-[10px] text-slate-400 tabular-nums">{documentDbs.length}</span>
+            <span className="ml-auto text-[10px] text-ink-3 tabular-nums">{documentDbs.length}</span>
           )}
         </Link>
         {onDocs && (
-          <div className="pl-3 pr-1 pb-1 space-y-0.5">
+          <div className="pl-3.5 pr-1 py-0.5 space-y-0.5">
             {isLoading &&
-              [0, 1, 2].map((i) => <div key={i} className="h-8 mx-1 rounded-md bg-slate-100 animate-pulse" />)}
+              [0, 1, 2].map((i) => <div key={i} className="h-8 mx-1 rounded-lg bg-surface-muted animate-pulse" />)}
             {documentDbs?.map((db) => {
               const active = db.id === activeId;
               return (
                 <Link
                   key={db.id}
                   href={`/document-dbs/${db.id}`}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] transition-colors ${
-                    active ? "bg-indigo-50 text-indigo-700 font-medium" : "text-slate-500 hover:bg-slate-50"
+                  className={`flex items-center gap-2 px-2.5 h-8 rounded-lg text-[13px] transition-colors duration-150 ${
+                    active
+                      ? "bg-primary-soft text-primary font-medium"
+                      : "text-ink-2 hover:bg-surface-muted hover:text-ink"
                   }`}
                 >
-                  <FileText className={`w-3.5 h-3.5 shrink-0 ${active ? "text-indigo-500" : "text-slate-300"}`} />
+                  <FileText className="w-3.5 h-3.5 shrink-0 opacity-70" />
                   <span className="truncate flex-1">{db.name}</span>
-                  <span className="text-[11px] text-slate-400 tabular-nums">{db.documentCount}</span>
+                  <span className="text-[11px] text-ink-3 tabular-nums">{db.documentCount}</span>
                 </Link>
               );
             })}

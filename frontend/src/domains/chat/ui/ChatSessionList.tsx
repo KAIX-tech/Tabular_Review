@@ -4,10 +4,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, Plus, Trash2 } from "@/shared/ui/icons";
 import { useChatSessionsStore } from "../model/chat-sessions.store";
 
-/**
- * Chat session nav, embedded under the "Chat" entry in the main sidebar:
- * a New Chat button + the persisted session history. Navigates to /chat on use.
- */
+/** Chat session nav under the "Chat" entry: New Chat + persisted session history. */
 export function ChatSessionList() {
   const router = useRouter();
   const sessions = useChatSessionsStore((s) => s.sessions);
@@ -26,11 +23,11 @@ export function ChatSessionList() {
   };
 
   return (
-    <div className="pl-3 pr-1 pb-1 space-y-0.5">
+    <div className="pl-3.5 pr-1 py-0.5 space-y-0.5">
       <button
         type="button"
         onClick={startNew}
-        className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+        className="w-full flex items-center gap-2 px-2.5 h-8 rounded-lg text-xs font-semibold text-primary hover:bg-primary-soft transition-colors duration-150"
       >
         <Plus className="w-3.5 h-3.5" />New Chat
       </button>
@@ -44,11 +41,11 @@ export function ChatSessionList() {
             tabIndex={0}
             onClick={() => open(s.id)}
             onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && open(s.id)}
-            className={`group flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] cursor-pointer transition-colors ${
-              active ? "bg-indigo-50 text-indigo-700 font-medium" : "text-slate-500 hover:bg-slate-50"
+            className={`group flex items-center gap-2 px-2.5 h-8 rounded-lg text-[13px] cursor-pointer transition-colors duration-150 ${
+              active ? "bg-primary-soft text-primary font-medium" : "text-ink-2 hover:bg-surface-muted hover:text-ink"
             }`}
           >
-            <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${active ? "text-indigo-500" : "text-slate-300"}`} />
+            <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-70" />
             <span className="truncate flex-1">{s.title || "새 대화"}</span>
             <button
               type="button"
@@ -57,7 +54,7 @@ export function ChatSessionList() {
                 e.stopPropagation();
                 deleteSession(s.id);
               }}
-              className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-600 shrink-0 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 text-ink-3 hover:text-rose-600 shrink-0 transition-opacity"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
