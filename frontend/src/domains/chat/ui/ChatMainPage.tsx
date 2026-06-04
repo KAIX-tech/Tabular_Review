@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, FileText, Send, User, X } from "@/shared/ui/icons";
 import { sendChatMessage } from "../api/document-db-chat.api";
-import type { ChatMessage, ChatSource } from "../model/types";
+import { useChatSessionsStore } from "../model/chat-sessions.store";
+import type { ChatSource } from "../model/types";
+import { ChatSessionList } from "./ChatSessionList";
 
 const SUGGESTED = [
   "MFN 조항이 가장 유리한 계약은?",
@@ -11,9 +13,13 @@ const SUGGESTED = [
   "최근 수정된 문서는?",
 ];
 
-/** Global chat surface across all Document DBs, with source citations. */
+/** Global chat across all Document DBs, with sessions and source citations. */
 export function ChatMainPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const sessions = useChatSessionsStore((s) => s.sessions);
+  const activeId = useChatSessionsStore((s) => s.activeId);
+  const appendMessage = useChatSessionsStore((s) => s.appendMessage);
+  const messages = sessions.find((s) => s.id === activeId)?.messages ?? [];
+
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [activeSource, setActiveSource] = useState<ChatSource | null>(null);
@@ -21,26 +27,30 @@ export function ChatMainPage() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages.length, isTyping]);
 
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || isTyping) return;
-    const userMsg: ChatMessage = { id: `${Date.now()}`, role: "user", text: q, timestamp: Date.now() };
-    setMessages((prev) => [...prev, userMsg]);
+    appendMessage({ id: crypto.randomUUID(), role: "user", text: q, timestamp: Date.now() });
     setInput("");
     setIsTyping(true);
     try {
       const reply = await sendChatMessage(q, messages);
-      setMessages((prev) => [
-        ...prev,
-        { id: `${Date.now() + 1}`, role: "model", text: reply.text, timestamp: Date.now(), sources: reply.sources },
-      ]);
+      appendMessage({
+        id: crypto.randomUUID(),
+        role: "model",
+        text: reply.text,
+        timestamp: Date.now(),
+        sources: reply.sources,
+      });
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: `${Date.now() + 1}`, role: "model", text: "오류가 발생했습니다. 다시 시도해 주세요.", timestamp: Date.now() },
-      ]);
+      appendMessage({
+        id: crypto.randomUUID(),
+        role: "model",
+        text: "오류가 발생했습니다. 다시 시도해 주세요.",
+        timestamp: Date.now(),
+      });
     } finally {
       setIsTyping(false);
     }
@@ -48,6 +58,8 @@ export function ChatMainPage() {
 
   return (
     <div className="flex h-full">
+      <ChatSessionList />
+
       <section className="flex-1 min-w-0 flex flex-col bg-slate-50">
         <header className="h-16 px-6 flex items-center gap-2 border-b border-slate-200 bg-white shrink-0">
           <div className="p-1.5 bg-indigo-100 rounded-md text-indigo-600">
@@ -168,7 +180,7 @@ export function ChatMainPage() {
       </section>
 
       {activeSource && (
-        <aside className="w-[360px] shrink-0 border-l border-slate-200 bg-white flex flex-col">
+        <aside className="w-[340px] shrink-0 border-l border-slate-200 bg-white flex flex-col">
           <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100">
             <div className="flex items-center gap-2 min-w-0">
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
