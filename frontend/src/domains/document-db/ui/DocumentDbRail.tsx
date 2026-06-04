@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChatSessionList } from "@/domains/chat";
-import { FileText, FolderOpen, MessageSquare, Table } from "@/shared/ui/icons";
+import { FolderOpen, MessageSquare, Table } from "@/shared/ui/icons";
 import { useDocumentDbs } from "../api/document-db.hooks";
+import { DbSquircle } from "./DbSquircle";
 
 /**
  * Left sidebar with two peer menu tabs at the same hierarchy:
@@ -23,7 +24,7 @@ export function DocumentDbRail() {
     <aside className="w-60 shrink-0 h-screen bg-surface border-r border-border flex flex-col">
       <Link href="/document-dbs" className="h-16 px-4 flex items-center gap-2.5 border-b border-border">
         <span className="grid place-items-center w-8 h-8 rounded-lg bg-ink text-white shadow-soft">
-          <Table className="w-4 h-4" />
+          <Table className="w-4 h-4" strokeWidth={1.75} />
         </span>
         <span className="font-semibold text-ink tracking-tight">Tabular Review</span>
       </Link>
@@ -31,7 +32,7 @@ export function DocumentDbRail() {
       <nav className="flex-1 overflow-y-auto p-2.5 space-y-0.5">
         {/* Chat tab */}
         <Link href="/chat" className={`tr-nav-item ${onChat ? "is-active" : ""}`}>
-          <MessageSquare className="w-4 h-4 shrink-0" />
+          <MessageSquare className="w-4 h-4 shrink-0" strokeWidth={1.75} />
           <span>Chat</span>
           <span className="ml-auto text-[10px] text-ink-3">전체 DB</span>
         </Link>
@@ -39,7 +40,7 @@ export function DocumentDbRail() {
 
         {/* Document DB tab */}
         <Link href="/document-dbs" className={`tr-nav-item mt-1 ${onDocs ? "is-active" : ""}`}>
-          <FolderOpen className="w-4 h-4 shrink-0" />
+          <FolderOpen className="w-4 h-4 shrink-0" strokeWidth={1.75} />
           <span>Document DB</span>
           {documentDbs && (
             <span className="ml-auto text-[10px] text-ink-3 tabular-nums">{documentDbs.length}</span>
@@ -55,13 +56,11 @@ export function DocumentDbRail() {
                 <Link
                   key={db.id}
                   href={`/document-dbs/${db.id}`}
-                  className={`flex items-center gap-2 px-2.5 h-8 rounded-lg text-[13px] transition-colors duration-150 ${
-                    active
-                      ? "bg-primary-soft text-primary font-medium"
-                      : "text-ink-2 hover:bg-surface-muted hover:text-ink"
+                  className={`flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] transition-colors duration-150 ${
+                    active ? "bg-surface-muted text-ink font-medium" : "text-ink-2 hover:bg-surface-muted hover:text-ink"
                   }`}
                 >
-                  <FileText className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                  <DbSquircle id={db.id} name={db.name} className="w-5 h-5 rounded-md text-[10px]" />
                   <span className="truncate flex-1">{db.name}</span>
                   <span className="text-[11px] text-ink-3 tabular-nums">{db.documentCount}</span>
                 </Link>
