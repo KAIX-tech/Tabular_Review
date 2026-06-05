@@ -45,4 +45,7 @@ export {
   RefreshCw,
   User,
   Send,
+  Settings,
+  Paperclip,
+  ArrowUp,
 } from "lucide-react";

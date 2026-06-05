@@ -1,14 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import dynamic from "next/dynamic";
-
-// The review workspace is a heavy, browser-only client surface (File System
-// Access, drag/drop, base64). Load it client-side to skip SSR entirely.
-const ReviewWorkspacePage = dynamic(
-  () => import("@/domains/workspace").then((m) => m.ReviewWorkspacePage),
-  { ssr: false },
-);
-
+// Default landing → Document DB list.
 export default function Page() {
-  return <ReviewWorkspacePage />;
+  redirect("/document-dbs");
 }

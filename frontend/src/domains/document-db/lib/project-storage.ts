@@ -1,4 +1,4 @@
-import type { SavedProject } from "@/domains/workspace/model/types";
+import type { SavedProject } from "../model/types";
 
 export const saveProject = async (project: SavedProject): Promise<boolean> => {
   const jsonString = JSON.stringify(project, null, 2);

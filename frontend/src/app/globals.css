@@ -4,33 +4,127 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: "Inter", sans-serif;
+/* Design tokens (RGB channels — see Design.md). */
+:root {
+  --canvas: 247 248 250;
+  --surface: 255 255 255;
+  --surface-muted: 242 244 247;
+  --border: 229 231 237;
+  --border-strong: 213 217 226;
+  --ink: 17 20 28; /* near-black: solid CTAs, primary text */
+  --ink-2: 92 100 114;
+  --ink-3: 142 150 164;
+  --primary: 37 99 235; /* quiet blue accent: links, focus, selection */
+  --primary-hover: 29 78 216;
+  --primary-soft: 238 244 255;
 }
 
-.font-serif {
-  font-family: "Merriweather", serif;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-canvas text-ink;
+    font-family: "Inter", sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .font-serif {
+    font-family: "Merriweather", serif;
+  }
+  ::selection {
+    @apply bg-primary-soft text-primary;
+  }
 }
 
-/* Custom Scrollbar - Thinner and more subtle */
+@layer components {
+  .tr-card {
+    @apply rounded-xl border border-border bg-surface shadow-soft;
+  }
+
+  .tr-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40;
+  }
+  /* Solid CTA: near-black (premium neutral), reserved for the main action. */
+  .tr-btn-primary {
+    @apply bg-ink text-white hover:bg-ink/90 shadow-soft;
+  }
+  .tr-btn-secondary {
+    @apply bg-surface text-ink border border-border hover:bg-surface-muted hover:border-border-strong;
+  }
+  .tr-btn-ghost {
+    @apply text-ink-2 hover:bg-surface-muted hover:text-ink;
+  }
+  .tr-btn-danger {
+    @apply text-ink-2 hover:bg-rose-50 hover:text-rose-600;
+  }
+
+  .tr-icon-btn {
+    @apply inline-flex items-center justify-center h-8 w-8 rounded-lg text-ink-3 transition-colors duration-150 hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40;
+  }
+
+  .tr-nav-item {
+    @apply flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-sm text-ink-2 transition-colors duration-150 hover:bg-surface-muted hover:text-ink;
+  }
+  /* Active selection: soft blue accent (matches chat sessions). */
+  .tr-nav-item.is-active {
+    @apply bg-primary-soft text-primary font-medium;
+  }
+
+  .tr-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-ink-3;
+  }
+
+  .tr-input {
+    @apply w-full bg-surface-muted rounded-2xl py-3 px-4 text-sm text-ink placeholder:text-ink-3 transition focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface;
+  }
+
+  /* Soft status pills. */
+  .tr-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
+  }
+  .tr-badge-neutral {
+    @apply bg-surface-muted text-ink-2;
+  }
+  .tr-badge-rose {
+    @apply bg-rose-50 text-rose-600;
+  }
+  .tr-badge-amber {
+    @apply bg-amber-50 text-amber-700;
+  }
+  .tr-badge-emerald {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+
+  /* Numbered citation chip. */
+  .tr-cite {
+    @apply inline-grid place-items-center w-5 h-5 rounded-full bg-surface-muted text-ink-2 text-[11px] tabular-nums align-middle transition-colors duration-150 hover:bg-primary-soft hover:text-primary;
+  }
+}
+
+/* Custom scrollbar — thin, subtle. */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: rgb(var(--border-strong));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgb(var(--ink-3));
+  background-clip: content-box;
 }
 
-/* Highlighting */
+/* Citation highlight. */
 mark {
-  background-color: #fef08a; /* yellow-200 */
+  background-color: #fef08a;
   color: transparent;
   mix-blend-mode: multiply;
 }
