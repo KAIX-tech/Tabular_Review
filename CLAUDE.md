@@ -8,13 +8,22 @@ This file orients you across the repo. Each app has its own `CLAUDE.md` with the
 detail that matters when working inside it — **read the relevant one before
 editing that app.**
 
+## Source of truth
+
+[docs/domain-design.md](docs/domain-design.md) is the **single source of truth**
+for the domain model, database tables, and API contract (entities, bounded
+contexts, ERD, Postgres+pgvector DDL, REST endpoints, retrieval pipeline). When
+implementing or changing anything in that space, **align to that document — and
+when reality diverges, update the document in the same change.** Treat it as a
+living spec, not a snapshot. (UI/UX spec lives in `docs/screen-plan.md`.)
+
 ## Layout
 
 ```
 .
 ├── frontend/      Next.js App Router + Feature-Sliced Design (FSD). See frontend/CLAUDE.md
 ├── backend/       FastAPI + DDD (bounded contexts, ports & adapters). See backend/CLAUDE.md
-├── docs/          Product/design docs (screen-plan.md = UI/UX 화면기획)
+├── docs/          domain-design.md = 도메인/테이블/API 진실원천; screen-plan.md = UI/UX 화면기획
 ├── docker-compose.yml   Runs both services
 ├── .env.example         Compose-level env (copy to .env)
 └── start-backend.sh     Local backend dev (venv + uvicorn, MPS on macOS)
