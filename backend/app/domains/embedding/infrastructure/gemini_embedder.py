@@ -2,7 +2,7 @@
 
 Wraps the google-genai SDK. Forces `output_dimensionality` to the configured
 dimension (default 1024) so vectors fit the shared pgvector column, and
-L2-normalizes them — Gemini only returns normalized vectors at the native 3072
+L2-normalizes them - Gemini only returns normalized vectors at the native 3072
 dim, so truncated dims must be normalized for correct cosine distance.
 
 Document and query embeddings use distinct task types for retrieval quality.

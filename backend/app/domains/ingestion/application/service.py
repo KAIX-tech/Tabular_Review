@@ -2,7 +2,7 @@
 
 Handles the synchronous document operations: create (store file + row), list,
 get, content (markdown), original file download, delete (row + stored object).
-The heavy convert/chunk/embed pipeline runs in the background — see
+The heavy convert/chunk/embed pipeline runs in the background - see
 :class:`app.domains.ingestion.application.processor.DocumentProcessor`.
 """
 

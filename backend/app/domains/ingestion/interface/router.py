@@ -49,7 +49,7 @@ async def upload_document(
         data=data,
     )
     # Commit now so the row is durable/visible before the background task (which
-    # uses its own session) reads it — the request session's teardown commit
+    # uses its own session) reads it - the request session's teardown commit
     # would otherwise race the task.
     await session.commit()
     # Run convert -> chunk -> embed after the response is sent.
@@ -88,10 +88,13 @@ async def download_document(
     service: IngestionService = Depends(get_ingestion_service),
 ) -> Response:
     data, mime_type, name = await service.get_file(document_id)
+    # Display PDFs/images/plain text in-browser; download other types.
+    viewable = mime_type == "application/pdf" or mime_type.startswith(("image/", "text/"))
+    disposition = "inline" if viewable else "attachment"
     return Response(
         content=data,
         media_type=mime_type,
-        headers={"Content-Disposition": f'inline; filename="{name}"'},
+        headers={"Content-Disposition": f'{disposition}; filename="{name}"'},
     )
 
 

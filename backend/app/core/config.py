@@ -9,7 +9,7 @@ domain and application layers free of infrastructure concerns.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- AI provider selection (embedding + generation adapters) ---
     # "gemini" (dev) or "onprem" (BGE-M3 + vLLM). The composition root picks adapters.
-    ai_provider: str = Field(default="gemini", alias="AI_PROVIDER")
+    ai_provider: Literal["gemini", "onprem"] = Field(default="gemini", alias="AI_PROVIDER")
     embedding_dim: int = Field(default=1024, alias="EMBEDDING_DIM")
 
     # --- Gemini (dev embedding/generation) ---

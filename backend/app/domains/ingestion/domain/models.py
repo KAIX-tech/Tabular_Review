@@ -1,9 +1,9 @@
-"""Domain models for the ingestion context (docs/domain-design.md §2.4–2.5, §3.1).
+"""Domain models for the ingestion context (docs/domain-design.md §2.4-2.5, §3.1).
 
 Framework-agnostic. A Document is an uploaded file that moves through a
 conversion/chunking/embedding pipeline; DocumentChunk is the retrieval unit.
 Large fields (markdown text, embedding vectors) are not carried on these entities
-— they are fetched/written through dedicated repository methods.
+- they are fetched/written through dedicated repository methods.
 """
 
 from __future__ import annotations

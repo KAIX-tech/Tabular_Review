@@ -6,6 +6,11 @@ its status machine, committing after each transition so the UI can show progress
 
 Docling conversion is synchronous and CPU/GPU-heavy, so it runs in a worker
 thread to keep the event loop responsive.
+
+Note (layering): because this processor owns its own session lifecycle for the
+background task, it instantiates infrastructure repositories directly here -- an
+intentional composition-root-style exception to the "application depends only on
+ports" rule, scoped to this background pipeline.
 """
 
 from __future__ import annotations
@@ -70,9 +75,11 @@ class DocumentProcessor:
 
                 texts = [c.text for c in converted.chunks]
                 vectors = await self._embedder.embed_documents(texts)
+                # strict=True: a chunk/vector count mismatch must fail loudly, not
+                # silently drop chunks (which would store text without embeddings).
                 new_chunks = [
                     NewChunk(index=c.index, text=c.text, page=c.page, embedding=v)
-                    for c, v in zip(converted.chunks, vectors)
+                    for c, v in zip(converted.chunks, vectors, strict=True)
                 ]
                 await chunks.replace_for_document(document_id, new_chunks)
 

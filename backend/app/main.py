@@ -3,7 +3,7 @@
 The single place that knows about concrete adapters. It reads settings, builds
 infrastructure adapters, injects them into application services, and wires the
 interface routers. Domain/application/interface layers never instantiate
-infrastructure directly — they receive it from here.
+infrastructure directly - they receive it from here.
 """
 
 from __future__ import annotations
