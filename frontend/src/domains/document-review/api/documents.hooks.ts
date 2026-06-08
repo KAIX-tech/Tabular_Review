@@ -1,9 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PROCESSING_STATUSES } from "../model/types";
-import { deleteDocument, listDocuments, uploadDocument } from "./documents.api";
+import {
+  deleteDocument,
+  getDocumentContent,
+  listDocuments,
+  uploadDocument,
+} from "./documents.api";
 
 export const documentKeys = {
   byDb: (dbId: string) => ["documents", dbId] as const,
+  content: (id: string) => ["documents", "content", id] as const,
 };
 
 // document-db's list query key (kept as a literal to avoid a document-db <-> the
@@ -18,6 +24,14 @@ export function useDocuments(documentDbId: string) {
     // Poll while any document is still being processed by the pipeline.
     refetchInterval: (query) =>
       (query.state.data ?? []).some((d) => PROCESSING_STATUSES.has(d.status)) ? 2000 : false,
+  });
+}
+
+export function useDocumentContent(documentId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: documentKeys.content(documentId),
+    queryFn: () => getDocumentContent(documentId),
+    enabled: enabled && !!documentId,
   });
 }
 

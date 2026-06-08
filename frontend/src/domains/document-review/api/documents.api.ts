@@ -31,3 +31,15 @@ export async function uploadDocument(
 export async function deleteDocument(documentId: string): Promise<void> {
   await axios.delete(`${getApiUrl()}/documents/${documentId}`);
 }
+
+const documentContentSchema = z.object({ markdown: z.string() });
+
+export async function getDocumentContent(documentId: string): Promise<string> {
+  const { data } = await axios.get(`${getApiUrl()}/documents/${documentId}/content`);
+  return documentContentSchema.parse(data).markdown;
+}
+
+/** Browser URL for downloading/viewing the original uploaded file. */
+export function documentFileUrl(documentId: string): string {
+  return `${getApiUrl()}/documents/${documentId}/file`;
+}
