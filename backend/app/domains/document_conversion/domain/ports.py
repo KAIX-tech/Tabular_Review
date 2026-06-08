@@ -27,3 +27,17 @@ class DocumentConverter(ABC):
             DocumentConversionError: if conversion fails.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def convert_and_chunk(
+        self, file_path: str, source_filename: str | None = None
+    ) -> ConvertedDocument:
+        """Convert and additionally split into page-aware chunks.
+
+        Returns a :class:`ConvertedDocument` with ``markdown``, ``chunks`` (with
+        page provenance), and ``page_count`` populated. Used by ingestion.
+
+        Raises:
+            DocumentConversionError: if conversion fails.
+        """
+        raise NotImplementedError

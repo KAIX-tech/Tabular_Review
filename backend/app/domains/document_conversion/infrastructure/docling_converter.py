@@ -19,7 +19,11 @@ from docling.document_converter import DocumentConverter as DoclingConverter
 from docling.document_converter import PdfFormatOption
 
 from app.core.logging import get_logger
-from app.domains.document_conversion.domain.models import ConversionSettings, ConvertedDocument
+from app.domains.document_conversion.domain.models import (
+    ConversionSettings,
+    ConvertedChunk,
+    ConvertedDocument,
+)
 from app.domains.document_conversion.domain.ports import DocumentConversionError, DocumentConverter
 
 logger = get_logger(__name__)
@@ -33,6 +37,17 @@ _PDF_BACKENDS = {
 def _is_utf8_decode_error(error: Exception) -> bool:
     message = str(error).lower()
     return "utf-8" in message and "codec can't decode" in message
+
+
+def _chunk_page(chunk) -> int | None:
+    """Smallest source page number across a chunk's provenance, if any."""
+    pages: list[int] = []
+    for item in getattr(getattr(chunk, "meta", None), "doc_items", []) or []:
+        for prov in getattr(item, "prov", []) or []:
+            page_no = getattr(prov, "page_no", None)
+            if isinstance(page_no, int):
+                pages.append(page_no)
+    return min(pages) if pages else None
 
 
 class DoclingDocumentConverter(DocumentConverter):
@@ -95,9 +110,10 @@ class DoclingDocumentConverter(DocumentConverter):
             and _is_utf8_decode_error(error)
         )
 
-    def convert(self, file_path: str, source_filename: str | None = None) -> ConvertedDocument:
+    def _run(self, file_path: str):
+        """Run Docling with the OCR-decode-failure retry; return the Docling result."""
         try:
-            result = self._converter.convert(file_path)
+            return self._converter.convert(file_path)
         except Exception as error:  # noqa: BLE001 - re-raised as domain error below
             if not self._should_retry_without_ocr(error):
                 raise DocumentConversionError(str(error)) from error
@@ -107,9 +123,45 @@ class DoclingDocumentConverter(DocumentConverter):
             if self._converter_without_ocr is None:
                 self._converter_without_ocr = self._build_converter(ocr_enabled=False)
             try:
-                result = self._converter_without_ocr.convert(file_path)
+                return self._converter_without_ocr.convert(file_path)
             except Exception as retry_error:  # noqa: BLE001
                 raise DocumentConversionError(str(retry_error)) from retry_error
 
+    def convert(self, file_path: str, source_filename: str | None = None) -> ConvertedDocument:
+        result = self._run(file_path)
         markdown = result.document.export_to_markdown()
         return ConvertedDocument(markdown=markdown, source_filename=source_filename)
+
+    def convert_and_chunk(
+        self, file_path: str, source_filename: str | None = None
+    ) -> ConvertedDocument:
+        result = self._run(file_path)
+        document = result.document
+        markdown = document.export_to_markdown()
+
+        # HierarchicalChunker splits along document structure and carries page
+        # provenance, without needing a tokenizer download. (Token-balanced
+        # HybridChunker is a future refinement.)
+        from docling.chunking import HierarchicalChunker
+
+        chunks: list[ConvertedChunk] = []
+        try:
+            for index, chunk in enumerate(HierarchicalChunker().chunk(dl_doc=document)):
+                chunks.append(
+                    ConvertedChunk(index=index, text=chunk.text, page=_chunk_page(chunk))
+                )
+        except Exception as error:  # noqa: BLE001
+            raise DocumentConversionError(f"Chunking failed: {error}") from error
+
+        page_count = None
+        try:
+            page_count = len(document.pages) or None
+        except Exception:  # noqa: BLE001 - page_count is best-effort metadata
+            page_count = None
+
+        return ConvertedDocument(
+            markdown=markdown,
+            source_filename=source_filename,
+            chunks=tuple(chunks),
+            page_count=page_count,
+        )

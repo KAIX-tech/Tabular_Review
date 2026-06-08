@@ -29,8 +29,19 @@ class ConversionSettings:
 
 
 @dataclass(frozen=True)
+class ConvertedChunk:
+    """A retrieval-sized piece of a converted document, with page provenance."""
+
+    index: int
+    text: str
+    page: int | None = None  # 1-based source page (for citation jump)
+
+
+@dataclass(frozen=True)
 class ConvertedDocument:
     """Result of converting a source document to clean Markdown."""
 
     markdown: str
     source_filename: str | None = None
+    chunks: tuple[ConvertedChunk, ...] = ()
+    page_count: int | None = None
