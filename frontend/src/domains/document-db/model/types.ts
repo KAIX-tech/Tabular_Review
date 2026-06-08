@@ -5,10 +5,11 @@ import type { Column, DocumentFile, ExtractionResult } from "@/domains/document-
 export const documentDbSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  // Backend column is nullable; accept null/undefined (docs/domain-design.md §2.2).
+  description: z.string().nullish(),
   documentCount: z.number().int().nonnegative(),
   columnCount: z.number().int().nonnegative(),
-  updatedAt: z.string().datetime(), // ISO 8601 timestamp
+  updatedAt: z.string().datetime(), // ISO 8601 (RFC3339 with Z)
 });
 
 export type DocumentDb = z.infer<typeof documentDbSchema>;

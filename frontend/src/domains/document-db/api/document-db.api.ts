@@ -36,3 +36,38 @@ export async function getDocumentDb(id: string): Promise<DocumentDb | null> {
     throw error;
   }
 }
+
+export interface CreateDocumentDbInput {
+  name: string;
+  description?: string;
+}
+
+export async function createDocumentDb(input: CreateDocumentDbInput): Promise<DocumentDb> {
+  if (ENV.useMocks) {
+    await mockDelay();
+    const db: DocumentDb = {
+      id: crypto.randomUUID(),
+      name: input.name,
+      description: input.description,
+      documentCount: 0,
+      columnCount: 0,
+      updatedAt: new Date().toISOString(),
+    };
+    MOCK_DOCUMENT_DBS.unshift(db); // mutate the in-memory fixture so the mock list reflects it
+    return db;
+  }
+
+  const { data } = await axios.post(`${getApiUrl()}/document-dbs`, input);
+  return documentDbSchema.parse(data);
+}
+
+export async function deleteDocumentDb(id: string): Promise<void> {
+  if (ENV.useMocks) {
+    await mockDelay(150);
+    const index = MOCK_DOCUMENT_DBS.findIndex((db) => db.id === id);
+    if (index >= 0) MOCK_DOCUMENT_DBS.splice(index, 1);
+    return;
+  }
+
+  await axios.delete(`${getApiUrl()}/document-dbs/${id}`);
+}
