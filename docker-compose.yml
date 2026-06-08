@@ -23,6 +23,28 @@ services:
     networks:
       - tabular-review-network
 
+  # Object storage: MinIO (S3-compatible) for original uploaded files.
+  minio:
+    image: minio/minio:latest
+    container_name: tabular-review-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-kalex}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-kalexsecret}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tabular-review-network
+
   # Backend: FastAPI + Docling document conversion + vLLM proxy.
   backend:
     build:
@@ -33,6 +55,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     ports:
       - "18002:8000"
     environment:
@@ -41,6 +65,18 @@ services:
       - LANG=${LANG:-C.UTF-8}
       - LC_ALL=${LC_ALL:-C.UTF-8}
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://kalex:kalex@db:5432/kalex}
+      # AI provider + Gemini (dev embedding/generation)
+      - AI_PROVIDER=${AI_PROVIDER:-gemini}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:-1024}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_EMBEDDING_MODEL=${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      - GEMINI_LLM_MODEL=${GEMINI_LLM_MODEL:-gemini-2.5-flash}
+      # Object storage (MinIO); endpoint is the internal compose hostname
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-kalex}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-kalexsecret}
+      - MINIO_BUCKET=${MINIO_BUCKET:-kalex-documents}
+      - MINIO_SECURE=${MINIO_SECURE:-false}
       - VLLM_BASE_URL=${VLLM_BASE_URL:-http://10.10.190.10:15006/v1}
       - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
       - VLLM_MODEL=${VLLM_MODEL:-glm-5}
@@ -99,3 +135,4 @@ volumes:
   docling-cache:
   hf-cache:
   pgdata:
+  minio-data:

@@ -33,6 +33,25 @@ class Settings(BaseSettings):
     )
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
 
+    # --- AI provider selection (embedding + generation adapters) ---
+    # "gemini" (dev) or "onprem" (BGE-M3 + vLLM). The composition root picks adapters.
+    ai_provider: str = Field(default="gemini", alias="AI_PROVIDER")
+    embedding_dim: int = Field(default=1024, alias="EMBEDDING_DIM")
+
+    # --- Gemini (dev embedding/generation) ---
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    gemini_embedding_model: str = Field(
+        default="gemini-embedding-001", alias="GEMINI_EMBEDDING_MODEL"
+    )
+    gemini_llm_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_LLM_MODEL")
+
+    # --- Object storage (MinIO / S3) for original uploaded files ---
+    minio_endpoint: str = Field(default="localhost:9000", alias="MINIO_ENDPOINT")
+    minio_access_key: str = Field(default="kalex", alias="MINIO_ACCESS_KEY")
+    minio_secret_key: str = Field(default="kalexsecret", alias="MINIO_SECRET_KEY")
+    minio_bucket: str = Field(default="kalex-documents", alias="MINIO_BUCKET")
+    minio_secure: bool = Field(default=False, alias="MINIO_SECURE")
+
     # --- LLM (vLLM OpenAI-compatible upstream) ---
     vllm_base_url: str = Field(default="http://10.10.190.10:15006/v1", alias="VLLM_BASE_URL")
     vllm_api_key: str = Field(default="EMPTY", alias="VLLM_API_KEY")
