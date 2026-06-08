@@ -46,6 +46,8 @@ from app.domains.ingestion.domain.ports import DocumentNotFoundError
 from app.domains.ingestion.infrastructure.repositories import SqlAlchemyDocumentRepository
 from app.domains.ingestion.interface.router import router as ingestion_router
 from app.domains.llm.application.service import LlmProxyService
+from app.domains.llm.domain.ports import TextGenerationPort
+from app.domains.llm.infrastructure.gemini_llm import GeminiLlm
 from app.domains.llm.infrastructure.vllm_client import VllmClient
 from app.domains.llm.interface.router import router as llm_router
 from app.domains.storage.infrastructure.minio_storage import MinioStorage
@@ -70,6 +72,15 @@ def _build_embedder(settings: Settings) -> EmbeddingPort:
     # onprem (BGE-M3) adapter lands later; fail clearly if selected now.
     raise NotImplementedError(
         f"AI_PROVIDER={settings.ai_provider!r} embedding adapter not implemented yet"
+    )
+
+
+def _build_text_generation(settings: Settings) -> TextGenerationPort:
+    if settings.ai_provider == "gemini":
+        return GeminiLlm(api_key=settings.gemini_api_key, model=settings.gemini_llm_model)
+    # onprem (GLM/vLLM) structured-generation adapter lands later.
+    raise NotImplementedError(
+        f"AI_PROVIDER={settings.ai_provider!r} generation adapter not implemented yet"
     )
 
 
@@ -150,6 +161,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.document_conversion_service = _build_document_conversion_service(settings)
     app.state.llm_proxy_service = _build_llm_proxy_service(settings)
     app.state.embedder = _build_embedder(settings)
+    app.state.text_generation = _build_text_generation(settings)
     app.state.storage = _build_storage(settings)
     # Session-scoped services: store factories; dependencies bind a request session.
     app.state.document_db_service_factory = _build_document_db_service

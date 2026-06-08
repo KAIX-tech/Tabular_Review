@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # "gemini" (dev) or "onprem" (BGE-M3 + vLLM). The composition root picks adapters.
     ai_provider: Literal["gemini", "onprem"] = Field(default="gemini", alias="AI_PROVIDER")
     embedding_dim: int = Field(default=1024, alias="EMBEDDING_DIM")
+    # Active LLM context window (tokens). Extraction sends the whole document when it
+    # fits this budget, else falls back to retrieval (docs/domain-design.md §2.12).
+    # Default = on-prem GLM (65k); Gemini dev has a much larger window.
+    llm_context_tokens: int = Field(default=65000, alias="LLM_CONTEXT_TOKENS")
 
     # --- Gemini (dev embedding/generation) ---
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
