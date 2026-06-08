@@ -182,6 +182,7 @@ DocumentDB의 문서(행)
 | `value_json` | jsonb null | 타입별 정규화값(number/date/list) |
 | `confidence` | enum(`high`,`medium`,`low`) null | 모델 신뢰도 |
 | `reasoning` | text null | 모델 근거 설명 |
+| `extraction_method` | enum(`full_context`,`retrieval_fallback`) null | 전체 문서 컨텍스트로 뽑았는지, 초장문이라 검색 폴백으로 뽑았는지(§2.12). **UI에서 구분 표기** |
 | `extraction_status` | enum — §3.2 | idle/queued/running/done/error |
 | `review_status` | enum(`unreviewed`,`verified`,`edited`,`rejected`) | 사람 검증 워크플로 |
 | `last_run_id` | uuid → ExtractionRun null | 마지막 추출 런 |
@@ -258,23 +259,66 @@ DocumentDB의 문서(행)
 | `rank` | int | 출처 표시 순번(①②③) |
 | `created_at` | timestamptz | |
 
-### 2.12 검색 파이프라인 (엔티티 아님 · `chat`/`extraction` 공용)
+### 2.12 추출(extraction) 전략 & 검색 파이프라인
 
-청크 검색은 **2단계 retrieve → rerank** 로 구성한다. 추출(셀 grounding)과 챗(RAG)이 공유.
+> **원칙: 추출은 임베딩 검색에 의존하지 않는다.** 문서 1건의 셀 추출은 검색 미스로
+> 정답 구간을 놓치면 그대로 오답이 된다. 따라서 **문서 전체 컨텍스트를 LLM에 주는 것**이
+> 기본이고, 임베딩 검색은 (1) 컨텍스트 한도를 넘는 초장문 폴백, (2) 출처 링크, (3) 챗(RAG)
+> 에만 쓴다.
+
+#### 추출 경로 (셀 채우기)
 
 ```text
-질의(셀 프롬프트 또는 챗 메시지)
-   │  ① 임베딩      BGE-M3
-   ▼
-pgvector 코사인 검색 (DB/문서 스코프 필터) ──▶ 후보 top-k (예: k=40)
-   │  ② 재정렬      BGE-Reranker-V2-M3 (query–chunk 쌍 점수)
-   ▼
-상위 top-n (예: n=5) ──▶ LLM 컨텍스트 + 출처(CellSource / ChatSource)
+                          ┌─ 문서 토큰 ≤ 예산 ─▶ [A] 전체 markdown 컨텍스트 ─┐
+컬럼(label+prompt) 세트 ──┤                                                 ├─▶ Gemini/GLM
+   (문서당 배치)          └─ 문서 토큰 > 예산 ─▶ [B] 임베딩 검색으로 관련 ──┘   (구조화 출력)
+                                                  청크만 모아 컨텍스트 구성        │
+                                                  (retrieval_fallback)            ▼
+                                          value · confidence · quote · reasoning · (컬럼별)
+                                                  → Cell(+CellSource) 적재
 ```
 
-- **온프렘 모델 구성**: LLM = vLLM(OpenAI 호환), 임베딩 = **BGE-M3**(1024d), 리랭커 = **BGE-Reranker-V2-M3**.
-- 임베딩/리랭커는 `llm`과 별개의 추론 엔드포인트 → 인프라 포트 `EmbeddingPort` / `RerankPort`로 추상화(컨텍스트는 구현체 비의존).
-- k/n, 스코어 임계값은 튜닝 파라미터(설정값).
+- **[A] 기본 = 전체 문서 컨텍스트.** `Document.markdown` 전체 + (스코프 내) 컬럼들의
+  label/prompt를 한 번에 보내 **문서당 1회 호출로 여러 컬럼을 동시 추출**(효율). 단일 컬럼
+  재추출/컬럼 추가 시에는 해당 컬럼만 배치.
+- **[B] 폴백 = 검색.** 문서가 모델 컨텍스트 예산을 초과할 때**만** 발동. 이때는 컬럼 프롬프트로
+  임베딩 검색(아래 파이프라인)해 관련 청크만 모아 컨텍스트를 구성한다.
+- **추출 방식 구분 저장**: 셀의 `extraction_method` = `full_context`(A) / `retrieval_fallback`(B).
+  폴백 값은 문서 전체를 못 본 결과이므로 **신뢰도가 낮을 수 있어 UI에서 명확히 구분 표기**한다
+  (예: 셀에 "부분 컨텍스트" 배지).
+
+#### 컨텍스트 예산 (폴백 임계값)
+
+폴백은 **활성 LLM의 컨텍스트 용량**을 기준으로 판단한다. 모델마다 다르므로 설정값으로 둔다.
+
+| 모델 | 컨텍스트 | 비고 |
+|---|---|---|
+| GLM (온프렘 vLLM) | **65k 토큰** | 현재 배포 설정값 |
+| Gemini 2.5 Flash (dev) | ~1M 토큰 | 사실상 대부분 문서가 [A]로 처리됨 |
+
+- 예산 = `LLM_CONTEXT_TOKENS`(설정, 기본 GLM=65k) − `프롬프트/지시문 오버헤드` − `예약 출력 토큰`.
+  예: GLM 65k − 약 4k(지시문) − 약 8k(출력) ≈ **문서 본문 예산 ~53k 토큰**. 초과 시 [B].
+- 토큰 추정은 보수적으로(문자수 기반 근사 + 안전 마진). 임계값/마진은 튜닝 파라미터.
+
+#### 검색 파이프라인 (폴백 + 챗 공용)
+
+폴백([B])과 챗(RAG)이 공유하는 **2단계 retrieve → rerank**:
+
+```text
+질의(컬럼 프롬프트 또는 챗 메시지)
+   │  ① 임베딩      BGE-M3 (dev: Gemini)
+   ▼
+pgvector 코사인 검색 (문서/DB 스코프 필터) ──▶ 후보 top-k (예: k=40)
+   │  ② 재정렬      BGE-Reranker-V2-M3 (query–chunk 쌍 점수)
+   ▼
+상위 top-n ──▶ LLM 컨텍스트 + 출처(CellSource / ChatSource)
+```
+
+- **온프렘 모델 구성**: LLM = vLLM/GLM, 임베딩 = **BGE-M3**(1024d), 리랭커 = **BGE-Reranker-V2-M3**.
+- 임베딩/리랭커는 `llm`과 별개 추론 엔드포인트 → 포트 `EmbeddingPort`/`RerankPort`로 추상화.
+- **출처 링크**: [A]·[B] 모두 LLM이 돌려준 `quote`(원문 스니펫)를 청크에 매핑해 CellSource
+  (chunk_id + page)로 저장 → "출처 보기" 점프. (매핑 실패 시 quote만 저장)
+- k/n, 스코어 임계값, 컨텍스트 예산은 튜닝 파라미터(설정값).
 
 ---
 
@@ -431,6 +475,8 @@ create table cell (
   value_json jsonb,
   confidence text check (confidence in ('high','medium','low')),
   reasoning text,
+  extraction_method text check (extraction_method in
+    ('full_context','retrieval_fallback')),
   extraction_status text not null default 'idle' check (extraction_status in
     ('idle','queued','running','done','error')),
   review_status text not null default 'unreviewed' check (review_status in
@@ -557,6 +603,7 @@ create table chat_source (
     "cells": {
       "<columnId>": {
         "id": "...", "value": "있음", "confidence": "high",
+        "extractionMethod": "full_context",
         "extractionStatus": "done", "reviewStatus": "unreviewed",
         "sources": [{ "quote": "...", "page": 3 }]
       }
@@ -610,10 +657,17 @@ create table chat_source (
 6. **추출 비동기 처리** → ✅ **인프로세스 백그라운드 태스크 우선.** 부하 증가 시 작업 큐(arq/Celery 등)로 전환.
 7. **`Column` 이름 충돌** → ✅ **도메인 엔티티명을 `DocumentColumn`으로 변경**(SQL 예약어 + 제네릭 명칭 회피). 테이블 `document_column`.
 8. **임베딩/리랭커 모델** → ✅ **임베딩 = BGE-M3(1024d), 리랭커 = BGE-Reranker-V2-M3.** 검색은 벡터 top-k → 리랭커 top-n 2단계(§2.12).
+9. **추출 전략** → ✅ **전체 문서 컨텍스트가 기본**(문서당 컬럼 배치 LLM 호출), 임베딩 검색은
+   초장문 폴백·출처링크·챗 전용(§2.12). 검색 단독 추출은 안 함(미스 위험).
+10. **폴백 임계값** → ✅ **활성 LLM 컨텍스트 용량 기준**(설정 `LLM_CONTEXT_TOKENS`, 기본
+   **GLM=65k**). 예산 = 용량 − 지시문 − 예약출력 초과 시에만 검색 폴백.
+11. **추출 방식 구분** → ✅ 셀 `extraction_method`(`full_context`/`retrieval_fallback`)로
+   저장하고 **UI에서 구분 표기**(폴백 값은 전체 문맥 미열람 신호).
 
 ### 남은 오픈 퀘스천
 - 멀티테넌트(`org_id`) 도입 시점 — 도입하면 전 테이블에 소급 추가 필요.
-- 검색 튜닝값(top-k / top-n / 스코어 임계값) 기본값 확정.
+- 검색 튜닝값(top-k / top-n / 스코어 임계값) 및 컨텍스트 예산 마진 기본값 확정.
+- **dev 리랭커**: BGE-Reranker는 온프렘 전용 → dev(Gemini)에서 폴백 시 재정렬을 생략(벡터 top-n 직행)할지, LLM 기반 재정렬을 쓸지.
 
 ---
 
