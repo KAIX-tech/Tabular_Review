@@ -3,7 +3,7 @@
 The single place that knows about concrete adapters. It reads settings, builds
 infrastructure adapters, injects them into application services, and wires the
 interface routers. Domain/application/interface layers never instantiate
-infrastructure directly — they receive it from here.
+infrastructure directly - they receive it from here.
 """
 
 from __future__ import annotations
@@ -38,9 +38,17 @@ from app.domains.document_db.infrastructure.repositories import (
     SqlAlchemyDocumentDbRepository,
 )
 from app.domains.document_db.interface.router import router as document_db_router
+from app.domains.embedding.domain.ports import EmbeddingPort
+from app.domains.embedding.infrastructure.gemini_embedder import GeminiEmbedder
+from app.domains.ingestion.application.processor import DocumentProcessor
+from app.domains.ingestion.application.service import IngestionService
+from app.domains.ingestion.domain.ports import DocumentNotFoundError
+from app.domains.ingestion.infrastructure.repositories import SqlAlchemyDocumentRepository
+from app.domains.ingestion.interface.router import router as ingestion_router
 from app.domains.llm.application.service import LlmProxyService
 from app.domains.llm.infrastructure.vllm_client import VllmClient
 from app.domains.llm.interface.router import router as llm_router
+from app.domains.storage.infrastructure.minio_storage import MinioStorage
 
 logger = get_logger(__name__)
 
@@ -49,6 +57,29 @@ def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
     return DocumentDbService(
         SqlAlchemyDocumentDbRepository(session),
         SqlAlchemyDocumentColumnRepository(session),
+    )
+
+
+def _build_embedder(settings: Settings) -> EmbeddingPort:
+    if settings.ai_provider == "gemini":
+        return GeminiEmbedder(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_embedding_model,
+            dimension=settings.embedding_dim,
+        )
+    # onprem (BGE-M3) adapter lands later; fail clearly if selected now.
+    raise NotImplementedError(
+        f"AI_PROVIDER={settings.ai_provider!r} embedding adapter not implemented yet"
+    )
+
+
+def _build_storage(settings: Settings) -> MinioStorage:
+    return MinioStorage(
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket=settings.minio_bucket,
+        secure=settings.minio_secure,
     )
 
 
@@ -91,7 +122,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = create_engine(settings.database_url, echo=settings.database_echo)
         app.state.db_engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
-        logger.info("Database engine initialized")
+        # Background ingestion pipeline needs the session factory, so build it here.
+        app.state.document_processor = DocumentProcessor(
+            sessionmaker=app.state.sessionmaker,
+            conversion=app.state.document_conversion_service,
+            embedder=app.state.embedder,
+            storage=app.state.storage,
+        )
+        logger.info("Database engine + ingestion processor initialized")
         try:
             yield
         finally:
@@ -111,15 +149,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Composition: build adapters + services, expose via app.state.
     app.state.document_conversion_service = _build_document_conversion_service(settings)
     app.state.llm_proxy_service = _build_llm_proxy_service(settings)
-    # Session-scoped service: store a factory; dependencies bind a request session.
+    app.state.embedder = _build_embedder(settings)
+    app.state.storage = _build_storage(settings)
+    # Session-scoped services: store factories; dependencies bind a request session.
     app.state.document_db_service_factory = _build_document_db_service
+    storage = app.state.storage
+    app.state.ingestion_service_factory = lambda session: IngestionService(
+        SqlAlchemyDocumentRepository(session), storage
+    )
 
     app.include_router(conversion_router)
     app.include_router(llm_router)
     app.include_router(document_db_router)
+    app.include_router(ingestion_router)
 
     @app.exception_handler(DocumentDbNotFoundError)
     @app.exception_handler(DocumentColumnNotFoundError)
+    @app.exception_handler(DocumentNotFoundError)
     async def _not_found_handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc) or "Not found"})
 

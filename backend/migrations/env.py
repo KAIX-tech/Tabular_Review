@@ -19,8 +19,9 @@ from app.core.db import Base
 
 # --- Register ORM models so their tables attach to Base.metadata ---------------
 # Import each context's models module for autogenerate. Add new contexts here as
-# they gain persistence (e.g. ingestion, extraction, chat, identity).
+# they gain persistence (e.g. extraction, chat, identity).
 from app.domains.document_db.infrastructure import models as _document_db_models  # noqa: E402,F401
+from app.domains.ingestion.infrastructure import models as _ingestion_models  # noqa: E402,F401
 
 config = context.config
 if config.config_file_name is not None:

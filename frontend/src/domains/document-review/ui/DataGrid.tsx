@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DocumentFile, Column, ExtractionResult, ExtractionCell } from '../model/types';
+import { DocumentFile, Column, ExtractionResult, ExtractionCell, DocumentStatus } from '../model/types';
 import { FileText, Plus, Loader2, AlertCircle, CheckCircle2, ChevronRight, MoreHorizontal, Trash2, CheckSquare, Square } from '@/shared/ui/icons';
 
 interface DataGridProps {
@@ -22,7 +22,25 @@ interface DataGridProps {
   selectedDocIds?: Set<string>;
   onToggleDocSelection?: (docId: string) => void;
   onToggleAllDocSelection?: () => void;
+  // Ingestion status per document (real ingestion mode). Shows a pill on the row.
+  documentStatuses?: Record<string, DocumentStatus>;
 }
+
+const STATUS_LABELS: Record<DocumentStatus, string> = {
+  uploaded: '대기',
+  converting: '변환 중',
+  chunking: '인덱싱 중',
+  ready: '준비됨',
+  failed: '실패',
+};
+
+const STATUS_CLASSES: Record<DocumentStatus, string> = {
+  uploaded: 'bg-slate-100 text-slate-500',
+  converting: 'bg-amber-50 text-amber-700',
+  chunking: 'bg-amber-50 text-amber-700',
+  ready: 'bg-emerald-50 text-emerald-700',
+  failed: 'bg-rose-50 text-rose-600',
+};
 
 export const DataGrid: React.FC<DataGridProps> = ({
   documents,
@@ -39,7 +57,8 @@ export const DataGrid: React.FC<DataGridProps> = ({
   onDropFiles,
   selectedDocIds = new Set(),
   onToggleDocSelection,
-  onToggleAllDocSelection
+  onToggleAllDocSelection,
+  documentStatuses,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [resizingColId, setResizingColId] = useState<string | null>(null);
@@ -249,7 +268,17 @@ export const DataGrid: React.FC<DataGridProps> = ({
                     </div>
                     <div className="flex-1 truncate pr-6">
                         <span title={doc.name}>{doc.name}</span>
-                        <div className="text-[10px] text-slate-400 font-normal uppercase mt-0.5">{doc.size > 1024 ? `${(doc.size/1024).toFixed(0)} KB` : `${doc.size} B`}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-400 font-normal uppercase">{doc.size > 1024 ? `${(doc.size/1024).toFixed(0)} KB` : `${doc.size} B`}</span>
+                            {documentStatuses?.[doc.id] && (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${STATUS_CLASSES[documentStatuses[doc.id]]}`}>
+                                    {(documentStatuses[doc.id] === 'converting' || documentStatuses[doc.id] === 'chunking' || documentStatuses[doc.id] === 'uploaded') && (
+                                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                    )}
+                                    {STATUS_LABELS[documentStatuses[doc.id]]}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Delete Button - Visible on Hover */}

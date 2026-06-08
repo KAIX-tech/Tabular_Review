@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import column, func, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.document_db.domain.models import (
@@ -22,6 +22,10 @@ from app.domains.document_db.domain.ports import (
     InvalidColumnOrderError,
 )
 from app.domains.document_db.infrastructure.models import DocumentColumnOrm, DocumentDbOrm
+
+# Lightweight reference to the ingestion `document` table for counting, without
+# importing that context's ORM model (keeps document_db decoupled from ingestion).
+_document_tbl = table("document", column("document_db_id"))
 
 # Fields that PATCH may change, per entity (guards the changes mapping).
 _DB_UPDATABLE = {"name", "description"}
@@ -69,16 +73,30 @@ class SqlAlchemyDocumentDbRepository(DocumentDbRepository):
             .group_by(DocumentColumnOrm.document_db_id)
             .subquery()
         )
+        doc_counts = (
+            select(
+                _document_tbl.c.document_db_id.label("db_id"),
+                func.count().label("cnt"),
+            )
+            .group_by(_document_tbl.c.document_db_id)
+            .subquery()
+        )
         stmt = (
-            select(DocumentDbOrm, func.coalesce(col_counts.c.cnt, 0))
+            select(
+                DocumentDbOrm,
+                func.coalesce(doc_counts.c.cnt, 0),
+                func.coalesce(col_counts.c.cnt, 0),
+            )
+            .outerjoin(doc_counts, DocumentDbOrm.id == doc_counts.c.db_id)
             .outerjoin(col_counts, DocumentDbOrm.id == col_counts.c.db_id)
             .order_by(DocumentDbOrm.updated_at.desc())
         )
         rows = (await self._session.execute(stmt)).all()
-        # document_count is 0 until the ingestion context (Phase 2) adds documents.
         return [
-            DocumentDbSummary(document_db=_to_db(orm), document_count=0, column_count=int(cnt))
-            for orm, cnt in rows
+            DocumentDbSummary(
+                document_db=_to_db(orm), document_count=int(doc_cnt), column_count=int(col_cnt)
+            )
+            for orm, doc_cnt, col_cnt in rows
         ]
 
     async def get(self, db_id: UUID) -> DocumentDb | None:
@@ -94,9 +112,15 @@ class SqlAlchemyDocumentDbRepository(DocumentDbRepository):
                 select(func.count()).where(DocumentColumnOrm.document_db_id == db_id)
             )
         ).scalar_one()
-        # document_count is 0 until the ingestion context (Phase 2) adds documents.
+        document_count = (
+            await self._session.execute(
+                select(func.count()).where(_document_tbl.c.document_db_id == db_id)
+            )
+        ).scalar_one()
         return DocumentDbSummary(
-            document_db=_to_db(orm), document_count=0, column_count=int(column_count)
+            document_db=_to_db(orm),
+            document_count=int(document_count),
+            column_count=int(column_count),
         )
 
     async def add(self, *, name: str, description: str | None) -> DocumentDb:

@@ -21,3 +21,9 @@ class DocumentConversionService:
     def convert(self, file_path: str, source_filename: str | None = None) -> ConvertedDocument:
         logger.info("Converting document filename=%s", source_filename)
         return self._converter.convert(file_path, source_filename)
+
+    def convert_and_chunk(
+        self, file_path: str, source_filename: str | None = None
+    ) -> ConvertedDocument:
+        logger.info("Converting + chunking document filename=%s", source_filename)
+        return self._converter.convert_and_chunk(file_path, source_filename)
