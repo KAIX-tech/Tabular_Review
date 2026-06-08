@@ -12,7 +12,7 @@ const MOCK_CHAT_LATENCY_MS = 700;
  * Signature is stable so only the body changes once the backend lands.
  */
 export async function sendChatMessage(message: string, _history: ChatMessage[]): Promise<ChatReply> {
-  if (ENV.useMocks) {
+  if (ENV.mocks.chat) {
     await new Promise((resolve) => setTimeout(resolve, MOCK_CHAT_LATENCY_MS));
     return mockChatReply(message);
   }

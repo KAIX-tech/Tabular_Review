@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["-C", "frontend", "dev"],
       "port": 3000
+    },
+    {
+      "name": "frontend-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "frontend", "start"],
+      "port": 3000
     }
   ]
 }

@@ -5,6 +5,13 @@ FastAPI service with two responsibilities today: convert documents to Markdown
 **Domain-Driven Design + ports & adapters (hexagonal)** so business logic stays
 independent of FastAPI, Docling, and httpx.
 
+> **Source of truth:** the domain model, tables, and API contract are specified in
+> [../docs/domain-design.md](../docs/domain-design.md) — bounded contexts
+> (`identity` / `document_db` / `ingestion` / `extraction` / `chat` + infra
+> `document_conversion` / `llm` / `embedding`), entities, Postgres+pgvector DDL,
+> REST endpoints, and the BGE-M3 / BGE-Reranker-V2-M3 retrieval pipeline.
+> Implement against that doc; if reality diverges, update the doc in the same change.
+
 ## Architecture
 
 Each capability is a **bounded context** under `app/domains/<context>/`, split

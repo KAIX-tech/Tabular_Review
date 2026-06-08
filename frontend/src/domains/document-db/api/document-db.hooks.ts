@@ -1,5 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { getDocumentDb, getDocumentDbs } from "./document-db.api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createDocumentDb,
+  deleteDocumentDb,
+  getDocumentDb,
+  getDocumentDbs,
+} from "./document-db.api";
 
 // Exported query keys for explicit cache contracts (no raw strings at call sites).
 export const documentDbKeys = {
@@ -19,5 +24,21 @@ export function useDocumentDb(id: string) {
     queryKey: documentDbKeys.detail(id),
     queryFn: () => getDocumentDb(id),
     enabled: !!id,
+  });
+}
+
+export function useCreateDocumentDb() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createDocumentDb,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: documentDbKeys.all }),
+  });
+}
+
+export function useDeleteDocumentDb() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteDocumentDb,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: documentDbKeys.all }),
   });
 }

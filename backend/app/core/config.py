@@ -26,6 +26,13 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
+    # --- Database (PostgreSQL + pgvector, async driver) ---
+    database_url: str = Field(
+        default="postgresql+asyncpg://kalex:kalex@localhost:5432/kalex",
+        alias="DATABASE_URL",
+    )
+    database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
+
     # --- LLM (vLLM OpenAI-compatible upstream) ---
     vllm_base_url: str = Field(default="http://10.10.190.10:15006/v1", alias="VLLM_BASE_URL")
     vllm_api_key: str = Field(default="EMPTY", alias="VLLM_API_KEY")

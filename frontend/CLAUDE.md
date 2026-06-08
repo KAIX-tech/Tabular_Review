@@ -5,6 +5,12 @@ React UI for Tabular Review. Built on **Next.js App Router** and organized with
 `../.claude/skills/frontend-engineer-persona/` — read it (and `guides/fsd-architecture.md`)
 before adding features.
 
+> **Source of truth:** domain model + API contract live in
+> [../docs/domain-design.md](../docs/domain-design.md). Frontend Zod schemas mirror
+> that doc (entities → `z.infer` types, endpoints → API 3-file pattern). When the
+> contract changes, update the doc and the Zod mirror together. UI/UX spec:
+> `../docs/screen-plan.md`.
+
 ## Tech stack
 
 - **Next.js (App Router)** + **React 19** + **TypeScript** (strict)
