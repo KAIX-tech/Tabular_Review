@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine, create_sessionmaker
@@ -25,11 +27,28 @@ from app.domains.document_conversion.infrastructure.huggingface_ssl import (
     configure_huggingface_ssl,
 )
 from app.domains.document_conversion.interface.router import router as conversion_router
+from app.domains.document_db.application.service import DocumentDbService
+from app.domains.document_db.domain.ports import (
+    DocumentColumnNotFoundError,
+    DocumentDbNotFoundError,
+)
+from app.domains.document_db.infrastructure.repositories import (
+    SqlAlchemyDocumentColumnRepository,
+    SqlAlchemyDocumentDbRepository,
+)
+from app.domains.document_db.interface.router import router as document_db_router
 from app.domains.llm.application.service import LlmProxyService
 from app.domains.llm.infrastructure.vllm_client import VllmClient
 from app.domains.llm.interface.router import router as llm_router
 
 logger = get_logger(__name__)
+
+
+def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
+    return DocumentDbService(
+        SqlAlchemyDocumentDbRepository(session),
+        SqlAlchemyDocumentColumnRepository(session),
+    )
 
 
 def _build_document_conversion_service(settings: Settings) -> DocumentConversionService:
@@ -91,9 +110,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Composition: build adapters + services, expose via app.state.
     app.state.document_conversion_service = _build_document_conversion_service(settings)
     app.state.llm_proxy_service = _build_llm_proxy_service(settings)
+    # Session-scoped service: store a factory; dependencies bind a request session.
+    app.state.document_db_service_factory = _build_document_db_service
 
     app.include_router(conversion_router)
     app.include_router(llm_router)
+    app.include_router(document_db_router)
+
+    @app.exception_handler(DocumentDbNotFoundError)
+    @app.exception_handler(DocumentColumnNotFoundError)
+    async def _not_found_handler(_request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": str(exc) or "Not found"})
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:
