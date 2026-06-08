@@ -2,6 +2,27 @@
 # Copy .env.example to .env and adjust values before running.
 
 services:
+  # Database: PostgreSQL 16 with the pgvector extension (embeddings, BGE-M3 1024d).
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: tabular-review-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-kalex}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-kalex}
+      - POSTGRES_DB=${POSTGRES_DB:-kalex}
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kalex} -d ${POSTGRES_DB:-kalex}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tabular-review-network
+
   # Backend: FastAPI + Docling document conversion + vLLM proxy.
   backend:
     build:
@@ -9,6 +30,9 @@ services:
       dockerfile: Dockerfile
     container_name: tabular-review-backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "18002:8000"
     environment:
@@ -16,6 +40,7 @@ services:
       - PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
       - LANG=${LANG:-C.UTF-8}
       - LC_ALL=${LC_ALL:-C.UTF-8}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://kalex:kalex@db:5432/kalex}
       - VLLM_BASE_URL=${VLLM_BASE_URL:-http://10.10.190.10:15006/v1}
       - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
       - VLLM_MODEL=${VLLM_MODEL:-glm-5}
@@ -66,3 +91,4 @@ networks:
 volumes:
   docling-cache:
   hf-cache:
+  pgdata:

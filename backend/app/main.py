@@ -8,10 +8,13 @@ infrastructure directly — they receive it from here.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings, get_settings
+from app.core.db import create_engine, create_sessionmaker
 from app.core.logging import configure_logging, get_logger
 from app.domains.document_conversion.application.service import DocumentConversionService
 from app.domains.document_conversion.domain.models import ConversionSettings, OcrSettings
@@ -62,7 +65,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging()
     settings = settings or get_settings()
 
-    app = FastAPI(title="Tabular Review Backend")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Database: build the async engine + session factory once per process.
+        engine = create_engine(settings.database_url, echo=settings.database_echo)
+        app.state.db_engine = engine
+        app.state.sessionmaker = create_sessionmaker(engine)
+        logger.info("Database engine initialized")
+        try:
+            yield
+        finally:
+            await engine.dispose()
+            logger.info("Database engine disposed")
+
+    app = FastAPI(title="Tabular Review Backend", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -78,6 +94,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(conversion_router)
     app.include_router(llm_router)
+
+    @app.get("/health", tags=["meta"])
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
 
     return app
 

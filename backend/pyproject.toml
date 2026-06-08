@@ -8,6 +8,11 @@ dependencies = [
     "uvicorn",
     "python-multipart",
     "pydantic-settings",
+    # Persistence: async SQLAlchemy + asyncpg driver, Alembic migrations, pgvector type.
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg",
+    "alembic",
+    "pgvector",
     "torch==2.5.1",
     "torchvision==0.20.1",
     # transformers 5.x requires a torch build exposing float8_e8m0fnu (torch >= 2.7),

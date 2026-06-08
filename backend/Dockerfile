@@ -37,13 +37,17 @@ ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --python 3.11
 
-# Application code (the `app` package and prefetch scripts).
+# Application code (the `app` package, migrations, and prefetch scripts).
 COPY app ./app
 COPY scripts ./scripts
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 # Put the project venv on PATH so `uvicorn` / `python` resolve to it.
 ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Apply DB migrations, then start the server. (DB readiness is gated by the
+# compose healthcheck via depends_on.)
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
