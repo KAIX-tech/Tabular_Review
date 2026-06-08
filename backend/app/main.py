@@ -40,6 +40,14 @@ from app.domains.document_db.infrastructure.repositories import (
 from app.domains.document_db.interface.router import router as document_db_router
 from app.domains.embedding.domain.ports import EmbeddingPort
 from app.domains.embedding.infrastructure.gemini_embedder import GeminiEmbedder
+from app.domains.extraction.application.processor import ExtractionProcessor
+from app.domains.extraction.application.service import ExtractionService
+from app.domains.extraction.domain.ports import CellNotFoundError, ExtractionRunNotFoundError
+from app.domains.extraction.infrastructure.repositories import (
+    SqlAlchemyCellRepository,
+    SqlAlchemyExtractionRunRepository,
+)
+from app.domains.extraction.interface.router import router as extraction_router
 from app.domains.ingestion.application.processor import DocumentProcessor
 from app.domains.ingestion.application.service import IngestionService
 from app.domains.ingestion.domain.ports import DocumentNotFoundError
@@ -54,10 +62,23 @@ from app.domains.storage.infrastructure.minio_storage import MinioStorage
 
 logger = get_logger(__name__)
 
+# Reserved tokens (prompt/instructions + model output) subtracted from the LLM
+# context window to get the document budget for full-context extraction (§2.12).
+_CONTEXT_RESERVE_TOKENS = 12000
+
 
 def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
     return DocumentDbService(
         SqlAlchemyDocumentDbRepository(session),
+        SqlAlchemyDocumentColumnRepository(session),
+    )
+
+
+def _build_extraction_service(session: AsyncSession) -> ExtractionService:
+    return ExtractionService(
+        SqlAlchemyCellRepository(session),
+        SqlAlchemyExtractionRunRepository(session),
+        SqlAlchemyDocumentRepository(session),
         SqlAlchemyDocumentColumnRepository(session),
     )
 
@@ -140,7 +161,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             embedder=app.state.embedder,
             storage=app.state.storage,
         )
-        logger.info("Database engine + ingestion processor initialized")
+        app.state.extraction_processor = ExtractionProcessor(
+            sessionmaker=app.state.sessionmaker,
+            text_generation=app.state.text_generation,
+            embedder=app.state.embedder,
+            context_token_budget=max(1000, settings.llm_context_tokens - _CONTEXT_RESERVE_TOKENS),
+        )
+        logger.info("Database engine + ingestion/extraction processors initialized")
         try:
             yield
         finally:
@@ -169,15 +196,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ingestion_service_factory = lambda session: IngestionService(
         SqlAlchemyDocumentRepository(session), storage
     )
+    app.state.extraction_service_factory = _build_extraction_service
 
     app.include_router(conversion_router)
     app.include_router(llm_router)
     app.include_router(document_db_router)
     app.include_router(ingestion_router)
+    app.include_router(extraction_router)
 
     @app.exception_handler(DocumentDbNotFoundError)
     @app.exception_handler(DocumentColumnNotFoundError)
     @app.exception_handler(DocumentNotFoundError)
+    @app.exception_handler(CellNotFoundError)
+    @app.exception_handler(ExtractionRunNotFoundError)
     async def _not_found_handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc) or "Not found"})
 
