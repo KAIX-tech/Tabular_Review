@@ -1,4 +1,4 @@
-"""Alembic environment — async engine, metadata from the shared declarative Base.
+"""Alembic environment - async engine, metadata from the shared declarative Base.
 
 The connection URL comes from application settings (single source of truth), and
 ``target_metadata`` is :class:`app.core.db.Base` metadata. Each bounded context's

@@ -5,7 +5,7 @@ Revises:
 Create Date: 2026-06-08
 
 Baseline migration: enable the pgvector extension so later migrations can create
-``vector`` columns (DocumentChunk.embedding — BGE-M3, 1024d). See
+``vector`` columns (DocumentChunk.embedding - BGE-M3, 1024d). See
 docs/domain-design.md §5.
 """
 

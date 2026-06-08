@@ -31,6 +31,7 @@ from app.domains.document_db.application.service import DocumentDbService
 from app.domains.document_db.domain.ports import (
     DocumentColumnNotFoundError,
     DocumentDbNotFoundError,
+    InvalidColumnOrderError,
 )
 from app.domains.document_db.infrastructure.repositories import (
     SqlAlchemyDocumentColumnRepository,
@@ -121,6 +122,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(DocumentColumnNotFoundError)
     async def _not_found_handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc) or "Not found"})
+
+    @app.exception_handler(InvalidColumnOrderError)
+    async def _invalid_order_handler(_request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": str(exc) or "Invalid order"})
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:

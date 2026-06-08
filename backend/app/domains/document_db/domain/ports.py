@@ -27,6 +27,10 @@ class DocumentColumnNotFoundError(Exception):
     """Raised when a DocumentColumn does not exist."""
 
 
+class InvalidColumnOrderError(Exception):
+    """Raised when a reorder payload is not an exact permutation of a DB's columns."""
+
+
 class DocumentDbRepository(ABC):
     @abstractmethod
     async def list_summaries(self) -> list[DocumentDbSummary]:

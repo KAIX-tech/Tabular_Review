@@ -19,6 +19,7 @@ from app.domains.document_db.domain.ports import (
     DocumentColumnRepository,
     DocumentDbNotFoundError,
     DocumentDbRepository,
+    InvalidColumnOrderError,
 )
 from app.domains.document_db.infrastructure.models import DocumentColumnOrm, DocumentDbOrm
 
@@ -191,9 +192,15 @@ class SqlAlchemyDocumentColumnRepository(DocumentColumnRepository):
     async def reorder(self, db_id: UUID, ordered_ids: list[UUID]) -> list[DocumentColumn]:
         stmt = select(DocumentColumnOrm).where(DocumentColumnOrm.document_db_id == db_id)
         by_id = {orm.id: orm for orm in (await self._session.execute(stmt)).scalars().all()}
+        # The payload must be an exact permutation of the DB's columns, otherwise
+        # positions could collide or leave gaps and corrupt ordering.
         missing = [cid for cid in ordered_ids if cid not in by_id]
         if missing:
             raise DocumentColumnNotFoundError(str(missing[0]))
+        if len(set(ordered_ids)) != len(ordered_ids):
+            raise InvalidColumnOrderError("order must not contain duplicate column ids")
+        if set(ordered_ids) != set(by_id):
+            raise InvalidColumnOrderError("order must include every column exactly once")
         for position, column_id in enumerate(ordered_ids):
             by_id[column_id].position = position
         await self._session.flush()

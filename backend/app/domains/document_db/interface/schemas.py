@@ -9,7 +9,7 @@ accepts them.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -24,7 +24,11 @@ from app.domains.document_db.domain.models import (
 
 IsoDatetime = Annotated[
     datetime,
-    PlainSerializer(lambda dt: dt.isoformat().replace("+00:00", "Z"), return_type=str),
+    PlainSerializer(
+        # Force UTC so a non-UTC aware value still serializes to the documented Z form.
+        lambda dt: dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        return_type=str,
+    ),
 ]
 
 
@@ -44,7 +48,7 @@ class DocumentDbUpdate(CamelModel):
 
 
 class DocumentDbResponse(CamelModel):
-    """Canonical DocumentDb wire shape — used for list, get, create, and update.
+    """Canonical DocumentDb wire shape - used for list, get, create, and update.
 
     Mirrors the frontend `documentDbSchema` (docs/domain-design.md §7), so one
     schema covers every DocumentDb response. `documentCount` is 0 until the

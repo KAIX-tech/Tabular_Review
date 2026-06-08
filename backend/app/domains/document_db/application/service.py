@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.core.logging import get_logger
 from app.domains.document_db.domain.models import (
     ColumnDataType,
     DocumentColumn,
@@ -22,8 +21,6 @@ from app.domains.document_db.domain.ports import (
     DocumentDbNotFoundError,
     DocumentDbRepository,
 )
-
-logger = get_logger(__name__)
 
 
 class DocumentDbService:
@@ -48,7 +45,6 @@ class DocumentDbService:
     async def create_document_db(
         self, *, name: str, description: str | None
     ) -> DocumentDbSummary:
-        logger.info("Creating DocumentDb name=%s", name)
         db = await self._db_repo.add(name=name, description=description)
         # A new DB has no columns/documents yet.
         return DocumentDbSummary(document_db=db, document_count=0, column_count=0)

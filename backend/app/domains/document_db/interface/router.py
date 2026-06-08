@@ -1,4 +1,4 @@
-"""HTTP router for the document_db context (docs/domain-design.md §6.1–6.2).
+"""HTTP router for the document_db context (docs/domain-design.md §6.1-6.2).
 
 Domain "not found" errors are translated to HTTP 404 by exception handlers
 registered in the composition root, so handlers stay focused on the happy path.

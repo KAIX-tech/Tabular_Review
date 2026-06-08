@@ -2,8 +2,8 @@
 
 Framework-agnostic entities/value objects (no SQLAlchemy, FastAPI, or HTTP).
 A DocumentDB is the aggregate root: a document type/domain that owns an
-extraction schema (its DocumentColumns) and — from Phase 2 — its documents.
-See docs/domain-design.md §2.2–2.3.
+extraction schema (its DocumentColumns) and - from Phase 2 - its documents.
+See docs/domain-design.md §2.2-2.3.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class ColumnDataType(str, Enum):
 
 @dataclass
 class DocumentDb:
-    """A document type/domain — owns columns (and later documents)."""
+    """A document type/domain - owns columns (and later documents)."""
 
     id: UUID
     name: str

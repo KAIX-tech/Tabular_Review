@@ -96,6 +96,11 @@ export function DocumentDbListPage() {
                       e.stopPropagation();
                       setMenuId(menuId === db.id ? null : db.id);
                     }}
+                    onKeyDown={(e) => {
+                      // Don't let Enter/Space bubble to the card link handler.
+                      if (e.key === "Enter" || e.key === " ") e.preventDefault();
+                      e.stopPropagation();
+                    }}
                     className="tr-icon-btn opacity-0 group-hover:opacity-100 data-[open=true]:opacity-100 transition-opacity"
                   >
                     <MoreHorizontal className="w-4 h-4" strokeWidth={1.75} />
@@ -107,6 +112,10 @@ export function DocumentDbListPage() {
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDelete(db.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") e.preventDefault();
+                          e.stopPropagation();
                         }}
                         className="tr-btn tr-btn-danger w-full h-8 px-2 justify-start text-sm"
                       >
