@@ -152,8 +152,9 @@ class SqlAlchemyCellRepository(CellRepository):
             CellSourceOrm(chunk_id=s.chunk_id, quote=s.quote, page=s.page) for s in sources
         ]
         await self._session.flush()
-        await self._session.refresh(orm, attribute_names=["sources"])
-        return _to_cell(orm)
+        # Re-query with selectinload so `sources` is loaded async-safely for mapping.
+        refreshed = await self._get_orm(document_id, column_id)
+        return _to_cell(refreshed if refreshed is not None else orm)
 
     async def set_error(self, document_id: UUID, column_id: UUID, run_id: UUID) -> None:
         orm = await self._get_orm(document_id, column_id)
