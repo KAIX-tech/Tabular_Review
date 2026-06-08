@@ -70,6 +70,10 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
         NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL:-glm-5}
         NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
+        # Mock toggles (per-domain falls back to global). Default mock-first.
+        NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS:-true}
+        NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
+        NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
     container_name: tabular-review-frontend
     restart: unless-stopped
     depends_on:
@@ -80,6 +84,9 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
       - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL:-glm-5}
       - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
+      - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS:-true}
+      - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
+      - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
       - NODE_ENV=${NODE_ENV:-production}
     networks:
       - tabular-review-network
