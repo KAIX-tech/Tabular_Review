@@ -9,31 +9,14 @@ accepts them.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, PlainSerializer
-from pydantic.alias_generators import to_camel
-
+from app.core.schemas import CamelModel, IsoDatetime
 from app.domains.document_db.domain.models import (
     ColumnDataType,
     DocumentColumn,
     DocumentDbSummary,
 )
-
-IsoDatetime = Annotated[
-    datetime,
-    PlainSerializer(
-        # Force UTC so a non-UTC aware value still serializes to the documented Z form.
-        lambda dt: dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-        return_type=str,
-    ),
-]
-
-
-class CamelModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 # --- DocumentDb ------------------------------------------------------------

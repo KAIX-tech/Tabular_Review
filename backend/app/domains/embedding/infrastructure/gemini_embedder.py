@@ -33,15 +33,23 @@ def _l2_normalize(vector: list[float]) -> list[float]:
 
 class GeminiEmbedder(EmbeddingPort):
     def __init__(self, *, api_key: str, model: str, dimension: int) -> None:
-        if not api_key:
-            raise EmbeddingError("GEMINI_API_KEY is not set")
-        self._client = genai.Client(api_key=api_key)
+        # Client is built lazily so the app boots even without a key; embedding
+        # then fails per-request (the document is marked failed) instead of at boot.
+        self._api_key = api_key
+        self._client: genai.Client | None = None
         self._model = model
         self._dimension = dimension
 
     @property
     def dimension(self) -> int:
         return self._dimension
+
+    def _get_client(self) -> genai.Client:
+        if not self._api_key:
+            raise EmbeddingError("GEMINI_API_KEY is not set")
+        if self._client is None:
+            self._client = genai.Client(api_key=self._api_key)
+        return self._client
 
     async def _embed(self, texts: list[str], task_type: str) -> list[list[float]]:
         if not texts:
@@ -50,7 +58,7 @@ class GeminiEmbedder(EmbeddingPort):
         for start in range(0, len(texts), _BATCH_SIZE):
             batch = texts[start : start + _BATCH_SIZE]
             try:
-                response = await self._client.aio.models.embed_content(
+                response = await self._get_client().aio.models.embed_content(
                     model=self._model,
                     contents=batch,
                     config=types.EmbedContentConfig(
