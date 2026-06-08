@@ -6,6 +6,7 @@ import {
   AddColumnMenu,
   ColumnLibrary,
   DataGrid,
+  DocumentViewer,
   extractColumnData,
   processDocumentToMarkdown,
   useDeleteDocument,
@@ -51,6 +52,7 @@ export const DocumentDbReviewPage: React.FC = () => {
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("none");
   const [selectedCell, setSelectedCell] = useState<{ docId: string; colId: string } | null>(null);
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [viewerDocId, setViewerDocId] = useState<string | null>(null);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
 
   const [selectedModel, setSelectedModel] = useState<string>(MODELS[0].id);
@@ -142,12 +144,8 @@ export const DocumentDbReviewPage: React.FC = () => {
   const handleRemoveDoc = (docId: string) => {
     if (realIngestion) {
       deleteMutation.mutate(docId);
-      if (selectedCell?.docId === docId) {
-        setSidebarMode("none");
-        setSelectedCell(null);
-      }
-      if (previewDocId === docId) {
-        setPreviewDocId(null);
+      if (viewerDocId === docId) {
+        setViewerDocId(null);
         setSidebarMode("none");
       }
       return;
@@ -364,7 +362,14 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleDocumentClick = (docId: string) => {
-    if (realIngestion) return; // document viewer is Phase 3
+    if (realIngestion) {
+      setSelectedCell(null);
+      setPreviewDocId(null);
+      setViewerDocId(docId);
+      setSidebarMode("viewer");
+      setIsSidebarExpanded(false);
+      return;
+    }
     setSelectedCell(null);
     setPreviewDocId(docId);
     setSidebarMode("verify");
@@ -638,6 +643,22 @@ export const DocumentDbReviewPage: React.FC = () => {
                 onExpand={setIsSidebarExpanded}
               />
             )}
+            {sidebarMode === "viewer" &&
+              viewerDocId &&
+              (() => {
+                const doc = (ingestedDocs ?? []).find((d) => d.id === viewerDocId);
+                return doc ? (
+                  <DocumentViewer
+                    documentId={doc.id}
+                    name={doc.name}
+                    status={doc.status}
+                    onClose={() => {
+                      setSidebarMode("none");
+                      setViewerDocId(null);
+                    }}
+                  />
+                ) : null;
+              })()}
           </div>
         </div>
       </main>

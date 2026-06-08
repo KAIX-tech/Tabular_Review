@@ -17,10 +17,12 @@ export {
   useDocuments,
   useUploadDocument,
   useDeleteDocument,
+  useDocumentContent,
   documentKeys,
 } from "./api/documents.hooks";
 
 export { DataGrid } from "./ui/DataGrid";
+export { DocumentViewer } from "./ui/DocumentViewer";
 export { VerificationSidebar } from "./ui/VerificationSidebar";
 export { AddColumnMenu } from "./ui/AddColumnMenu";
 export { ColumnLibrary } from "./ui/ColumnLibrary";
