@@ -110,6 +110,7 @@ services:
         NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS:-true}
         NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
         NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
+        NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW:-true}
     container_name: tabular-review-frontend
     restart: unless-stopped
     depends_on:
@@ -123,6 +124,7 @@ services:
       - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS:-true}
       - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
       - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
+      - NEXT_PUBLIC_USE_MOCKS_REVIEW=${NEXT_PUBLIC_USE_MOCKS_REVIEW:-true}
       - NODE_ENV=${NODE_ENV:-production}
     networks:
       - tabular-review-network

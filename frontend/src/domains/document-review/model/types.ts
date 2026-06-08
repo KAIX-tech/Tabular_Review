@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface DocumentFile {
   id: string;
   name: string;
@@ -6,6 +8,39 @@ export interface DocumentFile {
   content: string; // Base64 string for PDF/Images, or raw text for TXT
   mimeType: string;
 }
+
+// Real ingested document (backend `ingestion` context). Distinct from the
+// client-side mock `DocumentFile`. Mirrors the API response (docs/domain-design.md §2.4).
+export const documentStatusSchema = z.enum([
+  "uploaded",
+  "converting",
+  "chunking",
+  "ready",
+  "failed",
+]);
+
+export const ingestedDocumentSchema = z.object({
+  id: z.string(),
+  documentDbId: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  pageCount: z.number().int().nonnegative().nullish(),
+  status: documentStatusSchema,
+  error: z.string().nullish(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export type DocumentStatus = z.infer<typeof documentStatusSchema>;
+export type IngestedDocument = z.infer<typeof ingestedDocumentSchema>;
+
+/** Statuses where the ingestion pipeline is still running (poll for updates). */
+export const PROCESSING_STATUSES: ReadonlySet<DocumentStatus> = new Set<DocumentStatus>([
+  "uploaded",
+  "converting",
+  "chunking",
+]);
 
 export type ColumnType = "text" | "number" | "date" | "boolean" | "list";
 

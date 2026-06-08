@@ -24,5 +24,6 @@ export const ENV = {
   mocks: {
     documentDb: parseFlag(process.env.NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB, globalMocks),
     chat: parseFlag(process.env.NEXT_PUBLIC_USE_MOCKS_CHAT, globalMocks),
+    review: parseFlag(process.env.NEXT_PUBLIC_USE_MOCKS_REVIEW, globalMocks),
   },
 } as const;

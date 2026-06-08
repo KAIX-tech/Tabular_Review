@@ -8,6 +8,9 @@ import {
   DataGrid,
   extractColumnData,
   processDocumentToMarkdown,
+  useDeleteDocument,
+  useDocuments,
+  useUploadDocument,
   VerificationSidebar,
 } from "@/domains/document-review";
 import type {
@@ -15,6 +18,7 @@ import type {
   ColumnTemplate,
   ColumnType,
   DocumentFile,
+  DocumentStatus,
   ExtractionResult,
 } from "@/domains/document-review";
 import { ENV } from "@/shared/config/env";
@@ -64,6 +68,29 @@ export const DocumentDbReviewPage: React.FC = () => {
   const [isTextWrapEnabled, setIsTextWrapEnabled] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
 
+  // Real ingestion: documents come from the backend (upload -> convert -> chunk ->
+  // embed). Mock mode keeps the legacy client-side flow above. Extraction (Run)
+  // remains Phase 3, so it is disabled in real mode.
+  const dbId = params?.dbId ?? "";
+  const realIngestion = !ENV.mocks.review;
+  const { data: ingestedDocs } = useDocuments(realIngestion ? dbId : "");
+  const uploadMutation = useUploadDocument(dbId);
+  const deleteMutation = useDeleteDocument(dbId);
+
+  const gridDocuments: DocumentFile[] = realIngestion
+    ? (ingestedDocs ?? []).map((d) => ({
+        id: d.id,
+        name: d.name,
+        type: d.mimeType,
+        size: d.sizeBytes,
+        content: "", // original lives in object storage, not the client
+        mimeType: d.mimeType,
+      }))
+    : documents;
+  const documentStatuses: Record<string, DocumentStatus> | undefined = realIngestion
+    ? Object.fromEntries((ingestedDocs ?? []).map((d) => [d.id, d.status]))
+    : undefined;
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const fileList: File[] = Array.from(event.target.files);
@@ -73,6 +100,19 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const processUploadedFiles = async (fileList: File[]) => {
+    if (realIngestion) {
+      // Upload to the backend; the convert/chunk/embed pipeline runs server-side
+      // and the grid polls status via useDocuments.
+      for (const file of fileList) {
+        try {
+          await uploadMutation.mutateAsync(file);
+        } catch (error) {
+          console.error("Upload failed:", error);
+          alert(`업로드 실패: ${file.name}`);
+        }
+      }
+      return;
+    }
     setIsConverting(true);
     try {
       const processedFiles: DocumentFile[] = [];
@@ -100,6 +140,18 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleRemoveDoc = (docId: string) => {
+    if (realIngestion) {
+      deleteMutation.mutate(docId);
+      if (selectedCell?.docId === docId) {
+        setSidebarMode("none");
+        setSelectedCell(null);
+      }
+      if (previewDocId === docId) {
+        setPreviewDocId(null);
+        setSidebarMode("none");
+      }
+      return;
+    }
     setDocuments((prev) => prev.filter((d) => d.id !== docId));
     setResults((prev) => {
       const next = { ...prev };
@@ -312,6 +364,7 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleDocumentClick = (docId: string) => {
+    if (realIngestion) return; // document viewer is Phase 3
     setSelectedCell(null);
     setPreviewDocId(docId);
     setSidebarMode("verify");
@@ -372,7 +425,7 @@ export const DocumentDbReviewPage: React.FC = () => {
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-ink truncate leading-tight">{dbName}</h1>
             <p className="text-[11px] text-ink-3 leading-tight whitespace-nowrap">
-              문서 {documents.length} · 컬럼 {columns.length}
+              문서 {gridDocuments.length} · 컬럼 {columns.length}
             </p>
           </div>
         </div>
@@ -381,15 +434,15 @@ export const DocumentDbReviewPage: React.FC = () => {
           <button
             type="button"
             onClick={addDocument}
-            disabled={isConverting}
+            disabled={isConverting || uploadMutation.isPending}
             className={`flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-surface-muted text-ink-2 border border-border text-xs font-semibold rounded-lg transition-colors ${
-              isConverting ? "opacity-70 cursor-wait" : ""
+              isConverting || uploadMutation.isPending ? "opacity-70 cursor-wait" : ""
             }`}
           >
-            {isConverting ? (
+            {isConverting || uploadMutation.isPending ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                <span>변환 중…</span>
+                <span>{uploadMutation.isPending ? "업로드 중…" : "변환 중…"}</span>
               </>
             ) : (
               <>
@@ -469,7 +522,16 @@ export const DocumentDbReviewPage: React.FC = () => {
           </div>
 
           {/* Run / Stop / Re-run */}
-          {isProcessing ? (
+          {realIngestion ? (
+            <button
+              type="button"
+              disabled
+              title="추출 실행은 Phase 3에서 지원됩니다"
+              className="flex items-center gap-2 px-4 py-1.5 bg-ink text-white text-xs font-bold rounded-lg opacity-50 cursor-not-allowed"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />추출 실행
+            </button>
+          ) : isProcessing ? (
             <button
               type="button"
               onClick={handleStopExtraction}
@@ -519,9 +581,10 @@ export const DocumentDbReviewPage: React.FC = () => {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden p-6">
           <div className="flex-1 min-h-0 rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
             <DataGrid
-              documents={documents}
+              documents={gridDocuments}
               columns={columns}
               results={results}
+              documentStatuses={documentStatuses}
               onAddColumn={(rect) => setAddColumnAnchor(rect)}
               onEditColumn={handleEditColumn}
               onColumnResize={handleColumnResize}

@@ -6,10 +6,19 @@ export type {
   ExtractionCell,
   ExtractionResult,
   ColumnTemplate,
+  IngestedDocument,
+  DocumentStatus,
   // NOTE: the `ColumnLibrary` *type* is intentionally not re-exported here to
   // avoid colliding with the `ColumnLibrary` UI component below. It is an
   // internal model used by column-library.ts and the modal.
 } from "./model/types";
+export { PROCESSING_STATUSES } from "./model/types";
+export {
+  useDocuments,
+  useUploadDocument,
+  useDeleteDocument,
+  documentKeys,
+} from "./api/documents.hooks";
 
 export { DataGrid } from "./ui/DataGrid";
 export { VerificationSidebar } from "./ui/VerificationSidebar";
