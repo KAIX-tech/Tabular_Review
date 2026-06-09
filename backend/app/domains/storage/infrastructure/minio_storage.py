@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import io
 import threading
+from urllib.parse import urlsplit
 
 from minio import Minio
 from minio.error import S3Error
@@ -18,6 +19,25 @@ from app.core.logging import get_logger
 from app.domains.storage.domain.ports import StorageError, StoragePort
 
 logger = get_logger(__name__)
+
+
+def _normalize_endpoint(endpoint: str, secure: bool) -> tuple[str, bool]:
+    """Coerce an endpoint into the bare ``host[:port]`` the minio client requires.
+
+    The minio client rejects a scheme or path ("path in endpoint is not allowed"),
+    but operators naturally set MINIO_ENDPOINT to a full URL (e.g.
+    ``https://s3.internal/``). Strip the scheme (inferring ``secure`` from it) and
+    any path so a URL-style value just works.
+    """
+    raw = endpoint.strip()
+    if "://" in raw:
+        parts = urlsplit(raw)
+        host = parts.netloc
+        secure = parts.scheme == "https"
+    else:
+        # May carry a trailing "/path"; keep only host[:port].
+        host = raw.split("/", 1)[0]
+    return host.strip("/"), secure
 
 
 class MinioStorage(StoragePort):
@@ -30,8 +50,10 @@ class MinioStorage(StoragePort):
         bucket: str,
         secure: bool = False,
     ) -> None:
+        host, secure = _normalize_endpoint(endpoint, secure)
+        logger.info("MinIO endpoint=%s secure=%s", host, secure)
         self._client = Minio(
-            endpoint, access_key=access_key, secret_key=secret_key, secure=secure
+            host, access_key=access_key, secret_key=secret_key, secure=secure
         )
         self._bucket = bucket
         self._bucket_ready = False
