@@ -66,21 +66,16 @@ services:
     # absent from .env falls back to its default in app/core/config.py.
     env_file:
       - .env
-    # Overrides for values that MUST differ inside the Compose network from what
-    # .env uses for host access. `environment` wins over `env_file` in Compose.
+    # Only true network overrides live here — values that MUST differ inside the
+    # Compose network from the host-facing .env. `environment` wins over env_file.
+    # (Container runtime like PYTHON*/LANG/LC_ALL and DOCLING_ARTIFACTS_PATH are
+    # set in the Dockerfile, so they're intentionally not repeated.)
     environment:
-      # Container runtime (not app config; kept out of .env).
-      - PYTHONUNBUFFERED=1
-      - PYTHONIOENCODING=utf-8
-      - LANG=C.UTF-8
-      - LC_ALL=C.UTF-8
-      # Service-to-service hostnames (.env points db/minio at localhost for host
-      # access; inside the network the app must reach the service names).
+      # .env points db/minio at localhost for host access; inside the network the
+      # app must reach the compose service names.
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
       - MINIO_ENDPOINT=minio:9000
-      # In-container Docling model cache path (matches the mounted volume).
-      - DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
     volumes:
       - docling-cache:/root/.cache/docling
       - hf-cache:/root/.cache/huggingface
