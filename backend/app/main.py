@@ -9,6 +9,7 @@ infrastructure directly - they receive it from here.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,22 +41,51 @@ from app.domains.document_db.infrastructure.repositories import (
 from app.domains.document_db.interface.router import router as document_db_router
 from app.domains.embedding.domain.ports import EmbeddingPort
 from app.domains.embedding.infrastructure.gemini_embedder import GeminiEmbedder
+from app.domains.extraction.application.processor import ExtractionProcessor
+from app.domains.extraction.application.service import ExtractionService
+from app.domains.extraction.domain.ports import CellNotFoundError, ExtractionRunNotFoundError
+from app.domains.extraction.infrastructure.repositories import (
+    SqlAlchemyCellRepository,
+    SqlAlchemyExtractionRunRepository,
+)
+from app.domains.extraction.interface.router import router as extraction_router
 from app.domains.ingestion.application.processor import DocumentProcessor
 from app.domains.ingestion.application.service import IngestionService
 from app.domains.ingestion.domain.ports import DocumentNotFoundError
-from app.domains.ingestion.infrastructure.repositories import SqlAlchemyDocumentRepository
+from app.domains.ingestion.infrastructure.repositories import (
+    SqlAlchemyDocumentChunkRepository,
+    SqlAlchemyDocumentRepository,
+)
 from app.domains.ingestion.interface.router import router as ingestion_router
 from app.domains.llm.application.service import LlmProxyService
+from app.domains.llm.domain.ports import TextGenerationPort
+from app.domains.llm.infrastructure.gemini_llm import GeminiLlm
 from app.domains.llm.infrastructure.vllm_client import VllmClient
 from app.domains.llm.interface.router import router as llm_router
 from app.domains.storage.infrastructure.minio_storage import MinioStorage
 
+if TYPE_CHECKING:
+    from langfuse import Langfuse
+
 logger = get_logger(__name__)
+
+# Reserved tokens (prompt/instructions + model output) subtracted from the LLM
+# context window to get the document budget for full-context extraction (§2.12).
+_CONTEXT_RESERVE_TOKENS = 12000
 
 
 def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
     return DocumentDbService(
         SqlAlchemyDocumentDbRepository(session),
+        SqlAlchemyDocumentColumnRepository(session),
+    )
+
+
+def _build_extraction_service(session: AsyncSession) -> ExtractionService:
+    return ExtractionService(
+        SqlAlchemyCellRepository(session),
+        SqlAlchemyExtractionRunRepository(session),
+        SqlAlchemyDocumentRepository(session),
         SqlAlchemyDocumentColumnRepository(session),
     )
 
@@ -70,6 +100,41 @@ def _build_embedder(settings: Settings) -> EmbeddingPort:
     # onprem (BGE-M3) adapter lands later; fail clearly if selected now.
     raise NotImplementedError(
         f"AI_PROVIDER={settings.ai_provider!r} embedding adapter not implemented yet"
+    )
+
+
+def _build_langfuse(settings: Settings) -> "Langfuse | None":
+    """Build a Langfuse client for LLM-call tracing, or None when disabled.
+
+    Enabled only when both keys are present. The user-supplied LANGFUSE_BASE_URL
+    is mapped explicitly to the SDK's `host` argument.
+    """
+    if not settings.langfuse_enabled:
+        logger.info("Langfuse tracing disabled (LANGFUSE_*_KEY not set)")
+        return None
+    from langfuse import Langfuse
+
+    client = Langfuse(
+        public_key=settings.langfuse_public_key,
+        secret_key=settings.langfuse_secret_key,
+        host=settings.langfuse_base_url,
+    )
+    logger.info("Langfuse tracing enabled (host=%s)", settings.langfuse_base_url)
+    return client
+
+
+def _build_text_generation(
+    settings: Settings, tracer: "Langfuse | None" = None
+) -> TextGenerationPort:
+    if settings.ai_provider == "gemini":
+        return GeminiLlm(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_llm_model,
+            tracer=tracer,
+        )
+    # onprem (GLM/vLLM) structured-generation adapter lands later.
+    raise NotImplementedError(
+        f"AI_PROVIDER={settings.ai_provider!r} generation adapter not implemented yet"
     )
 
 
@@ -129,12 +194,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             embedder=app.state.embedder,
             storage=app.state.storage,
         )
-        logger.info("Database engine + ingestion processor initialized")
+        app.state.extraction_processor = ExtractionProcessor(
+            sessionmaker=app.state.sessionmaker,
+            cell_repo_factory=SqlAlchemyCellRepository,
+            run_repo_factory=SqlAlchemyExtractionRunRepository,
+            document_repo_factory=SqlAlchemyDocumentRepository,
+            column_repo_factory=SqlAlchemyDocumentColumnRepository,
+            chunk_repo_factory=SqlAlchemyDocumentChunkRepository,
+            text_generation=app.state.text_generation,
+            embedder=app.state.embedder,
+            context_token_budget=max(1000, settings.llm_context_tokens - _CONTEXT_RESERVE_TOKENS),
+        )
+        logger.info("Database engine + ingestion/extraction processors initialized")
         try:
             yield
         finally:
             await engine.dispose()
             logger.info("Database engine disposed")
+            tracer = getattr(app.state, "langfuse", None)
+            if tracer is not None:
+                tracer.flush()
+                logger.info("Langfuse tracer flushed")
 
     app = FastAPI(title="Tabular Review Backend", lifespan=lifespan)
 
@@ -150,6 +230,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.document_conversion_service = _build_document_conversion_service(settings)
     app.state.llm_proxy_service = _build_llm_proxy_service(settings)
     app.state.embedder = _build_embedder(settings)
+    app.state.langfuse = _build_langfuse(settings)
+    app.state.text_generation = _build_text_generation(settings, app.state.langfuse)
     app.state.storage = _build_storage(settings)
     # Session-scoped services: store factories; dependencies bind a request session.
     app.state.document_db_service_factory = _build_document_db_service
@@ -157,15 +239,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ingestion_service_factory = lambda session: IngestionService(
         SqlAlchemyDocumentRepository(session), storage
     )
+    app.state.extraction_service_factory = _build_extraction_service
 
     app.include_router(conversion_router)
     app.include_router(llm_router)
     app.include_router(document_db_router)
     app.include_router(ingestion_router)
+    app.include_router(extraction_router)
 
     @app.exception_handler(DocumentDbNotFoundError)
     @app.exception_handler(DocumentColumnNotFoundError)
     @app.exception_handler(DocumentNotFoundError)
+    @app.exception_handler(CellNotFoundError)
+    @app.exception_handler(ExtractionRunNotFoundError)
     async def _not_found_handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc) or "Not found"})
 

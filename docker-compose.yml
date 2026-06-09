@@ -1,3 +1,9 @@
+# DEVELOPMENT compose: hot-reload everything.
+#   - backend runs `fastapi dev` against ./backend mounted into the container.
+#   - frontend runs `next dev` against ./frontend mounted into the container.
+#   - db + minio run locally for a self-contained dev stack.
+# For production (built images, external db/minio), use docker-compose.prod.yml:
+#   docker compose -f docker-compose.prod.yml up -d --build
 # Docker Compose automatically loads the .env file in this directory.
 # Copy .env.example to .env and adjust values before running.
 
@@ -12,7 +18,9 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-kalex}
       - POSTGRES_DB=${POSTGRES_DB:-kalex}
     ports:
-      - "${POSTGRES_PORT:-15432}:5432"
+      # Host-published port (separate from POSTGRES_PORT, which is the in-network
+      # connection port = 5432). Defaults to 15432 to avoid clashing with a local pg.
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -45,7 +53,9 @@ services:
     networks:
       - tabular-review-network
 
-  # Backend: FastAPI + Docling document conversion + vLLM proxy.
+  # Backend (DEV): FastAPI hot-reload via `fastapi dev` against mounted source.
+  # Reuses the production image only for its system deps (tesseract, etc.) + venv;
+  # the source is bind-mounted so edits reload instantly.
   backend:
     build:
       context: ./backend
@@ -59,73 +69,69 @@ services:
         condition: service_healthy
     ports:
       - "18002:8000"
+    # App config from the root .env (single source of truth); missing vars fall
+    # back to app/core/config.py defaults.
+    env_file:
+      - .env
+    # Only true network overrides (must differ in-network from host-facing .env).
     environment:
-      - PYTHONUNBUFFERED=${PYTHONUNBUFFERED:-1}
-      - PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
-      - LANG=${LANG:-C.UTF-8}
-      - LC_ALL=${LC_ALL:-C.UTF-8}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://kalex:kalex@db:5432/kalex}
-      # AI provider + Gemini (dev embedding/generation)
-      - AI_PROVIDER=${AI_PROVIDER:-gemini}
-      - EMBEDDING_DIM=${EMBEDDING_DIM:-1024}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_EMBEDDING_MODEL=${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
-      - GEMINI_LLM_MODEL=${GEMINI_LLM_MODEL:-gemini-2.5-flash}
-      # Object storage (MinIO); endpoint is the internal compose hostname
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-kalex}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-kalexsecret}
-      - MINIO_BUCKET=${MINIO_BUCKET:-kalex-documents}
-      - MINIO_SECURE=${MINIO_SECURE:-false}
-      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://10.10.190.10:15006/v1}
-      - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
-      - VLLM_MODEL=${VLLM_MODEL:-glm-5}
-      - VLLM_TIMEOUT_SECONDS=${VLLM_TIMEOUT_SECONDS:-120}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13002}
-      - DOCLING_OCR_ENABLED=${DOCLING_OCR_ENABLED:-true}
-      - DOCLING_OCR_FORCE_FULL_PAGE=${DOCLING_OCR_FORCE_FULL_PAGE:-false}
-      - DOCLING_OCR_LANGS=${DOCLING_OCR_LANGS:-eng,kor}
-      - DOCLING_OCR_FALLBACK_ON_DECODE_ERROR=${DOCLING_OCR_FALLBACK_ON_DECODE_ERROR:-true}
-      - DOCLING_PDF_BACKEND=${DOCLING_PDF_BACKEND:-pypdfium2}
-      - DOCLING_ARTIFACTS_PATH=${DOCLING_ARTIFACTS_PATH:-/root/.cache/docling/models}
-      - DOCLING_HF_DISABLE_SSL_VERIFY=${DOCLING_HF_DISABLE_SSL_VERIFY:-true}
-      - DOCLING_HF_TRUST_ENV=${DOCLING_HF_TRUST_ENV:-false}
-      - HF_HUB_DISABLE_XET=${HF_HUB_DISABLE_XET:-1}
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - MINIO_ENDPOINT=minio:9000
     volumes:
+      # Bind-mount source for hot reload; keep the image's venv via an anonymous
+      # volume so the host dir doesn't shadow /app/.venv.
+      - ./backend:/app
+      - /app/.venv
       - docling-cache:/root/.cache/docling
       - hf-cache:/root/.cache/huggingface
+    # Run migrations, then start the dev server with reload on 0.0.0.0:8000.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        alembic upgrade head
+        exec fastapi dev app/main.py --host 0.0.0.0 --port 8000
     networks:
       - tabular-review-network
 
-  # Frontend: Next.js App Router app.
+  # Frontend (DEV): Next.js hot-reload via `next dev` against mounted source.
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
-        NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL:-glm-5}
-        NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
-        # Mock toggles (per-domain falls back to global). Default mock-first.
-        NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS:-true}
-        NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
-        NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
-        NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW:-true}
+    image: node:20-alpine
     container_name: tabular-review-frontend
     restart: unless-stopped
+    working_dir: /app
     depends_on:
       - backend
     ports:
       - "13002:3000"
+    # NEXT_PUBLIC_* are read live by `next dev` (no build step), so pass them as
+    # runtime env (interpolated from .env). Polling enables hot reload over the
+    # bind mount (notably on macOS/Windows Docker).
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
-      - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL:-glm-5}
-      - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
-      - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS:-true}
-      - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
-      - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
-      - NEXT_PUBLIC_USE_MOCKS_REVIEW=${NEXT_PUBLIC_USE_MOCKS_REVIEW:-true}
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL}
+      - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS}
+      - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS}
+      - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
+      - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT}
+      - NEXT_PUBLIC_USE_MOCKS_REVIEW=${NEXT_PUBLIC_USE_MOCKS_REVIEW}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    command:
+      - /bin/sh
+      - -c
+      - |
+        npm install -g pnpm@9
+        # Keep the pnpm store inside the node_modules volume (not the host bind
+        # mount) so it doesn't litter ./frontend and hardlinks work.
+        pnpm install --frozen-lockfile --store-dir /app/node_modules/.pnpm-store
+        # Call next directly (not `pnpm dev --`, which leaks `--` into next's args).
+        exec pnpm exec next dev -H 0.0.0.0 -p 3000
     networks:
       - tabular-review-network
 
@@ -138,3 +144,4 @@ volumes:
   hf-cache:
   pgdata:
   minio-data:
+  frontend-node-modules:

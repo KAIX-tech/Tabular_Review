@@ -20,6 +20,13 @@ export {
   useDocumentContent,
   documentKeys,
 } from "./api/documents.hooks";
+export {
+  useCells,
+  useRun,
+  useCreateRun,
+  useReviewCell,
+  cellKeys,
+} from "./api/extraction.cells.hooks";
 
 export { DataGrid } from "./ui/DataGrid";
 export { DocumentViewer } from "./ui/DocumentViewer";

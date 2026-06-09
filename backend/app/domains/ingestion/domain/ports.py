@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.domains.ingestion.domain.models import Document, DocumentStatus
+from app.domains.ingestion.domain.models import Document, DocumentChunk, DocumentStatus
 
 
 class DocumentNotFoundError(Exception):
@@ -81,4 +81,17 @@ class DocumentChunkRepository(ABC):
     @abstractmethod
     async def replace_for_document(self, document_id: UUID, chunks: list[NewChunk]) -> None:
         """Delete any existing chunks for the document, then insert the new set."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_by_document(self, document_id: UUID) -> list[DocumentChunk]:
+        """All chunks for a document, ordered by index (for quote->chunk mapping)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def search_in_document(
+        self, document_id: UUID, embedding: list[float], limit: int
+    ) -> list[DocumentChunk]:
+        """Top-`limit` chunks of a document by cosine similarity to `embedding`
+        (retrieval fallback for long documents)."""
         raise NotImplementedError

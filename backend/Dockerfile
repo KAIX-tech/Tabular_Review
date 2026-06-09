@@ -26,6 +26,9 @@ ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUNBUFFERED=1
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
 ENV HF_HUB_DISABLE_XET=1
+# Fixed in-container Docling model cache path (matches the docling-cache volume
+# mount). Docling reads this from the OS env directly (not via app config).
+ENV DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
 
 # uv settings: use system Python, copy (not hardlink) into the layer, compile bytecode.
 ENV UV_PYTHON_DOWNLOADS=never

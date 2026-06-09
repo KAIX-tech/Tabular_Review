@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.ingestion.domain.models import Document, DocumentStatus
+from app.domains.ingestion.domain.models import Document, DocumentChunk, DocumentStatus
 from app.domains.ingestion.domain.ports import (
     DocumentChunkRepository,
     DocumentNotFoundError,
@@ -15,6 +15,16 @@ from app.domains.ingestion.domain.ports import (
     NewChunk,
 )
 from app.domains.ingestion.infrastructure.models import DocumentChunkOrm, DocumentOrm
+
+
+def _to_chunk(orm: DocumentChunkOrm) -> DocumentChunk:
+    return DocumentChunk(
+        id=orm.id,
+        document_id=orm.document_id,
+        index=orm.index,
+        text=orm.text,
+        page=orm.page,
+    )
 
 
 def _to_document(orm: DocumentOrm) -> Document:
@@ -134,3 +144,27 @@ class SqlAlchemyDocumentChunkRepository(DocumentChunkRepository):
                 )
             )
         await self._session.flush()
+
+    async def list_by_document(self, document_id: UUID) -> list[DocumentChunk]:
+        stmt = (
+            select(DocumentChunkOrm)
+            .where(DocumentChunkOrm.document_id == document_id)
+            .order_by(DocumentChunkOrm.index)
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_to_chunk(o) for o in rows]
+
+    async def search_in_document(
+        self, document_id: UUID, embedding: list[float], limit: int
+    ) -> list[DocumentChunk]:
+        stmt = (
+            select(DocumentChunkOrm)
+            .where(
+                DocumentChunkOrm.document_id == document_id,
+                DocumentChunkOrm.embedding.is_not(None),
+            )
+            .order_by(DocumentChunkOrm.embedding.cosine_distance(embedding))
+            .limit(limit)
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_to_chunk(o) for o in rows]

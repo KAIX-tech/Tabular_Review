@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Annotated, Literal
+from urllib.parse import quote_plus
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -27,16 +28,38 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
     # --- Database (PostgreSQL + pgvector, async driver) ---
-    database_url: str = Field(
-        default="postgresql+asyncpg://kalex:kalex@localhost:5432/kalex",
-        alias="DATABASE_URL",
-    )
+    # Discrete connection components so production can point at shared/managed
+    # infrastructure (just set POSTGRES_SERVER/PORT/...). The async SQLAlchemy URL
+    # is assembled from these in `database_url`.
+    postgres_server: str = Field(default="localhost", alias="POSTGRES_SERVER")
+    postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
+    postgres_db: str = Field(default="kalex", alias="POSTGRES_DB")
+    postgres_user: str = Field(default="kalex", alias="POSTGRES_USER")
+    postgres_password: str = Field(default="kalex", alias="POSTGRES_PASSWORD")
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
+
+    @property
+    def database_url(self) -> str:
+        """Async SQLAlchemy URL assembled from the POSTGRES_* components.
+
+        User/password are URL-encoded so special characters (e.g. in a managed-DB
+        password) don't corrupt the DSN.
+        """
+        user = quote_plus(self.postgres_user)
+        password = quote_plus(self.postgres_password)
+        return (
+            f"postgresql+asyncpg://{user}:{password}"
+            f"@{self.postgres_server}:{self.postgres_port}/{self.postgres_db}"
+        )
 
     # --- AI provider selection (embedding + generation adapters) ---
     # "gemini" (dev) or "onprem" (BGE-M3 + vLLM). The composition root picks adapters.
     ai_provider: Literal["gemini", "onprem"] = Field(default="gemini", alias="AI_PROVIDER")
     embedding_dim: int = Field(default=1024, alias="EMBEDDING_DIM")
+    # Active LLM context window (tokens). Extraction sends the whole document when it
+    # fits this budget, else falls back to retrieval (docs/domain-design.md §2.12).
+    # Default = on-prem GLM (65k); Gemini dev has a much larger window.
+    llm_context_tokens: int = Field(default=65000, alias="LLM_CONTEXT_TOKENS")
 
     # --- Gemini (dev embedding/generation) ---
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
@@ -44,6 +67,20 @@ class Settings(BaseSettings):
         default="gemini-embedding-001", alias="GEMINI_EMBEDDING_MODEL"
     )
     gemini_llm_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_LLM_MODEL")
+
+    # --- Langfuse (LLM call tracing; optional) ---
+    # Tracing is enabled only when both keys are present (see `langfuse_enabled`).
+    langfuse_secret_key: str = Field(default="", alias="LANGFUSE_SECRET_KEY")
+    langfuse_public_key: str = Field(default="", alias="LANGFUSE_PUBLIC_KEY")
+    # User-supplied var is LANGFUSE_BASE_URL; Langfuse's own SDK env is LANGFUSE_HOST.
+    # We read BASE_URL here and pass it explicitly to the client (mapped to host).
+    langfuse_base_url: str = Field(
+        default="https://cloud.langfuse.com", alias="LANGFUSE_BASE_URL"
+    )
+
+    @property
+    def langfuse_enabled(self) -> bool:
+        return bool(self.langfuse_secret_key and self.langfuse_public_key)
 
     # --- Object storage (MinIO / S3) for original uploaded files ---
     minio_endpoint: str = Field(default="localhost:9000", alias="MINIO_ENDPOINT")

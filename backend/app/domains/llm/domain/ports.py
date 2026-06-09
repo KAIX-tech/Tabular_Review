@@ -31,3 +31,27 @@ class LlmClient(ABC):
             LlmConnectionError: transport-level failure.
         """
         raise NotImplementedError
+
+
+class TextGenerationPort(ABC):
+    """Higher-level structured generation (used by extraction, later chat).
+
+    Distinct from the raw proxy `LlmClient`: callers describe the desired JSON
+    shape in the prompt and receive a parsed object. Adapters: Gemini (dev),
+    vLLM/GLM (on-prem).
+    """
+
+    @abstractmethod
+    async def generate_json(
+        self,
+        *,
+        system: str,
+        user: str,
+        max_output_tokens: int | None = None,
+    ) -> dict:
+        """Generate JSON-mode output and return it parsed.
+
+        Raises:
+            LlmUpstreamError: upstream failure or unparseable output.
+        """
+        raise NotImplementedError

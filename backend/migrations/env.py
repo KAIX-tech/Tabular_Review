@@ -21,6 +21,7 @@ from app.core.db import Base
 # Import each context's models module for autogenerate. Add new contexts here as
 # they gain persistence (e.g. extraction, chat, identity).
 from app.domains.document_db.infrastructure import models as _document_db_models  # noqa: E402,F401
+from app.domains.extraction.infrastructure import models as _extraction_models  # noqa: E402,F401
 from app.domains.ingestion.infrastructure import models as _ingestion_models  # noqa: E402,F401
 
 config = context.config
@@ -33,12 +34,24 @@ config.set_main_option("sqlalchemy.url", get_settings().database_url)
 target_metadata = Base.metadata
 
 
+# pgvector indexes (hnsw/ivfflat) can't be introspected by Alembic, so autogenerate
+# keeps flagging them for drop. Exclude them from comparison.
+_AUTOGEN_IGNORED_INDEXES = {"ix_document_chunk_embedding_hnsw"}
+
+
+def _include_object(obj, name, type_, reflected, compare_to) -> bool:
+    if type_ == "index" and name in _AUTOGEN_IGNORED_INDEXES:
+        return False
+    return True
+
+
 def _run_migrations(connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
         compare_server_default=True,
+        include_object=_include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
