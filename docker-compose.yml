@@ -59,42 +59,24 @@ services:
         condition: service_healthy
     ports:
       - "18002:8000"
+    # All application config is sourced from the root .env (single source of
+    # truth — no per-variable duplication here, so nothing gets missed). Any var
+    # absent from .env falls back to its default in app/core/config.py.
+    env_file:
+      - .env
+    # Overrides for values that MUST differ inside the Compose network from what
+    # .env uses for host access. `environment` wins over `env_file` in Compose.
     environment:
-      - PYTHONUNBUFFERED=${PYTHONUNBUFFERED:-1}
-      - PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
-      - LANG=${LANG:-C.UTF-8}
-      - LC_ALL=${LC_ALL:-C.UTF-8}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://kalex:kalex@db:5432/kalex}
-      # AI provider + Gemini (dev embedding/generation)
-      - AI_PROVIDER=${AI_PROVIDER:-gemini}
-      - EMBEDDING_DIM=${EMBEDDING_DIM:-1024}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_EMBEDDING_MODEL=${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
-      - GEMINI_LLM_MODEL=${GEMINI_LLM_MODEL:-gemini-2.5-flash}
-      # Langfuse LLM-call tracing (optional; enabled only when both keys present)
-      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
-      - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
-      # Object storage (MinIO); endpoint is the internal compose hostname
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-kalex}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-kalexsecret}
-      - MINIO_BUCKET=${MINIO_BUCKET:-kalex-documents}
-      - MINIO_SECURE=${MINIO_SECURE:-false}
-      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://10.10.190.10:15006/v1}
-      - VLLM_API_KEY=${VLLM_API_KEY:-EMPTY}
-      - VLLM_MODEL=${VLLM_MODEL:-glm-5}
-      - VLLM_TIMEOUT_SECONDS=${VLLM_TIMEOUT_SECONDS:-120}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://10.10.190.4:13002}
-      - DOCLING_OCR_ENABLED=${DOCLING_OCR_ENABLED:-true}
-      - DOCLING_OCR_FORCE_FULL_PAGE=${DOCLING_OCR_FORCE_FULL_PAGE:-false}
-      - DOCLING_OCR_LANGS=${DOCLING_OCR_LANGS:-eng,kor}
-      - DOCLING_OCR_FALLBACK_ON_DECODE_ERROR=${DOCLING_OCR_FALLBACK_ON_DECODE_ERROR:-true}
-      - DOCLING_PDF_BACKEND=${DOCLING_PDF_BACKEND:-pypdfium2}
-      - DOCLING_ARTIFACTS_PATH=${DOCLING_ARTIFACTS_PATH:-/root/.cache/docling/models}
-      - DOCLING_HF_DISABLE_SSL_VERIFY=${DOCLING_HF_DISABLE_SSL_VERIFY:-true}
-      - DOCLING_HF_TRUST_ENV=${DOCLING_HF_TRUST_ENV:-false}
-      - HF_HUB_DISABLE_XET=${HF_HUB_DISABLE_XET:-1}
+      # Container runtime (not app config; kept out of .env).
+      - PYTHONUNBUFFERED=1
+      - PYTHONIOENCODING=utf-8
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      # Service-to-service hostnames (.env points db/minio at localhost for host access).
+      - DATABASE_URL=postgresql+asyncpg://kalex:kalex@db:5432/kalex
+      - MINIO_ENDPOINT=minio:9000
+      # In-container Docling model cache path (matches the mounted volume).
+      - DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
     volumes:
       - docling-cache:/root/.cache/docling
       - hf-cache:/root/.cache/huggingface
