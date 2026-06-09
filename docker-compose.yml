@@ -1,3 +1,9 @@
+# DEVELOPMENT compose: hot-reload everything.
+#   - backend runs `fastapi dev` against ./backend mounted into the container.
+#   - frontend runs `next dev` against ./frontend mounted into the container.
+#   - db + minio run locally for a self-contained dev stack.
+# For production (built images, external db/minio), use docker-compose.prod.yml:
+#   docker compose -f docker-compose.prod.yml up -d --build
 # Docker Compose automatically loads the .env file in this directory.
 # Copy .env.example to .env and adjust values before running.
 
@@ -47,7 +53,9 @@ services:
     networks:
       - tabular-review-network
 
-  # Backend: FastAPI + Docling document conversion + vLLM proxy.
+  # Backend (DEV): FastAPI hot-reload via `fastapi dev` against mounted source.
+  # Reuses the production image only for its system deps (tesseract, etc.) + venv;
+  # the source is bind-mounted so edits reload instantly.
   backend:
     build:
       context: ./backend
@@ -61,55 +69,66 @@ services:
         condition: service_healthy
     ports:
       - "18002:8000"
-    # All application config is sourced from the root .env (single source of
-    # truth — no per-variable duplication here, so nothing gets missed). Any var
-    # absent from .env falls back to its default in app/core/config.py.
+    # App config from the root .env (single source of truth); missing vars fall
+    # back to app/core/config.py defaults.
     env_file:
       - .env
-    # Only true network overrides live here — values that MUST differ inside the
-    # Compose network from the host-facing .env. `environment` wins over env_file.
-    # (Container runtime like PYTHON*/LANG/LC_ALL and DOCLING_ARTIFACTS_PATH are
-    # set in the Dockerfile, so they're intentionally not repeated.)
+    # Only true network overrides (must differ in-network from host-facing .env).
     environment:
-      # .env points db/minio at localhost for host access; inside the network the
-      # app must reach the compose service names.
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
       - MINIO_ENDPOINT=minio:9000
     volumes:
+      # Bind-mount source for hot reload; keep the image's venv via an anonymous
+      # volume so the host dir doesn't shadow /app/.venv.
+      - ./backend:/app
+      - /app/.venv
       - docling-cache:/root/.cache/docling
       - hf-cache:/root/.cache/huggingface
+    # Run migrations, then start the dev server with reload on 0.0.0.0:8000.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        alembic upgrade head
+        exec fastapi dev app/main.py --host 0.0.0.0 --port 8000
     networks:
       - tabular-review-network
 
-  # Frontend: Next.js App Router app.
+  # Frontend (DEV): Next.js hot-reload via `next dev` against mounted source.
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      # NEXT_PUBLIC_* are inlined into the bundle at BUILD time, so they MUST be
-      # passed as build args (env_file/runtime env is ignored by the built app).
-      # Values are interpolated from the root .env (single source of truth).
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-        NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL}
-        NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS}
-        # Mock toggles (per-domain falls back to global). "false" => real API.
-        NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS}
-        NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
-        NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT}
-        NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW}
+    image: node:20-alpine
     container_name: tabular-review-frontend
     restart: unless-stopped
+    working_dir: /app
     depends_on:
       - backend
     ports:
       - "13002:3000"
-    # Runtime config only. NEXT_PUBLIC_* are already baked at build time (above),
-    # so they are intentionally NOT repeated here. Backend secrets stay out of
-    # the frontend container by design (no env_file: .env here).
+    # NEXT_PUBLIC_* are read live by `next dev` (no build step), so pass them as
+    # runtime env (interpolated from .env). Polling enables hot reload over the
+    # bind mount (notably on macOS/Windows Docker).
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL}
+      - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS}
+      - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS}
+      - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
+      - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT}
+      - NEXT_PUBLIC_USE_MOCKS_REVIEW=${NEXT_PUBLIC_USE_MOCKS_REVIEW}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    command:
+      - /bin/sh
+      - -c
+      - |
+        npm install -g pnpm@9
+        pnpm install --frozen-lockfile
+        exec pnpm dev -- -H 0.0.0.0
     networks:
       - tabular-review-network
 
@@ -122,3 +141,4 @@ volumes:
   hf-cache:
   pgdata:
   minio-data:
+  frontend-node-modules:

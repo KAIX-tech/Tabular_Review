@@ -1,0 +1,65 @@
+# PRODUCTION compose: build + run the backend and frontend as images.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Database (PostgreSQL + pgvector) and object storage (MinIO/S3) are NOT defined
+# here — production points at shared/managed infrastructure. Configure the app to
+# reach it via .env (POSTGRES_SERVER/PORT/credentials, MINIO_ENDPOINT/keys, ...).
+# Unlike the dev compose, there are no in-network service-name overrides: every
+# value comes straight from .env, so .env must be tuned for the prod targets.
+#
+# Docker Compose automatically loads .env for ${...} interpolation.
+
+services:
+  # Backend: built image. Default CMD runs migrations then uvicorn (see Dockerfile).
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tabular-review-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-18002}:8000"
+    # All config from .env (managed db/minio hostnames included — no overrides).
+    env_file:
+      - .env
+    volumes:
+      # Persist Docling/HF model caches across restarts.
+      - docling-cache:/root/.cache/docling
+      - hf-cache:/root/.cache/huggingface
+    networks:
+      - tabular-review-network
+
+  # Frontend: built image. NEXT_PUBLIC_* are baked at build time from .env.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL}
+        NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS}
+        NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS}
+        NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
+        NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT}
+        NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW}
+    container_name: tabular-review-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-13002}:3000"
+    # NEXT_PUBLIC_* are already baked (above); backend secrets stay out of the
+    # frontend container by design (no env_file here).
+    environment:
+      - NODE_ENV=production
+    networks:
+      - tabular-review-network
+
+networks:
+  tabular-review-network:
+    driver: bridge
+
+volumes:
+  docling-cache:
+  hf-cache:

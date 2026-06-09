@@ -6,6 +6,8 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi",
     "uvicorn",
+    # `fastapi dev` CLI (dev hot-reload server) + uvicorn[standard] reload deps.
+    "fastapi-cli",
     "python-multipart",
     "pydantic-settings",
     # Persistence: async SQLAlchemy + asyncpg driver, Alembic migrations, pgvector type.
