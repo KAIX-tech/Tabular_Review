@@ -1,8 +1,9 @@
 # Backend (FastAPI + Docling) for Tabular Review — uv-based.
 FROM python:3.11-slim
 
-# uv binary (pinned for reproducibility).
-COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /uvx /bin/
+# uv via pip (pinned). Avoids pulling the ghcr.io uv image, which the internal
+# network's TLS interception blocks.
+RUN pip install --no-cache-dir uv==0.9.26
 
 WORKDIR /app
 
