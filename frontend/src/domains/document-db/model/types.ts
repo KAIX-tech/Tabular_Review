@@ -23,8 +23,8 @@ export const columnResponseSchema = z.object({
   prompt: z.string(),
   options: z.array(z.string()).nullish(),
   position: z.number().int(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
 });
 export type ColumnResponse = z.infer<typeof columnResponseSchema>;
 

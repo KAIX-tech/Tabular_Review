@@ -351,8 +351,11 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleToggleAllDocSelection = () => {
+    // Use gridDocuments so select-all works in real ingestion mode too (the mock
+    // `documents` array is empty there, which would always toggle to empty).
+    const targetDocs = realIngestion ? gridDocuments : documents;
     setSelectedDocIds((prev) =>
-      prev.size === documents.length ? new Set() : new Set(documents.map((d) => d.id)),
+      prev.size === targetDocs.length ? new Set() : new Set(targetDocs.map((d) => d.id)),
     );
   };
 
