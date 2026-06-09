@@ -16,6 +16,8 @@ dependencies = [
     # Ingestion: Gemini SDK (dev embedding/generation), MinIO/S3 object storage.
     "google-genai",
     "minio",
+    # Observability: LLM call tracing.
+    "langfuse",
     "torch==2.5.1",
     "torchvision==0.20.1",
     # transformers 5.x requires a torch build exposing float8_e8m0fnu (torch >= 2.7),

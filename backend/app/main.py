@@ -9,6 +9,7 @@ infrastructure directly - they receive it from here.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +64,9 @@ from app.domains.llm.infrastructure.vllm_client import VllmClient
 from app.domains.llm.interface.router import router as llm_router
 from app.domains.storage.infrastructure.minio_storage import MinioStorage
 
+if TYPE_CHECKING:
+    from langfuse import Langfuse
+
 logger = get_logger(__name__)
 
 # Reserved tokens (prompt/instructions + model output) subtracted from the LLM
@@ -99,9 +103,35 @@ def _build_embedder(settings: Settings) -> EmbeddingPort:
     )
 
 
-def _build_text_generation(settings: Settings) -> TextGenerationPort:
+def _build_langfuse(settings: Settings) -> "Langfuse | None":
+    """Build a Langfuse client for LLM-call tracing, or None when disabled.
+
+    Enabled only when both keys are present. The user-supplied LANGFUSE_BASE_URL
+    is mapped explicitly to the SDK's `host` argument.
+    """
+    if not settings.langfuse_enabled:
+        logger.info("Langfuse tracing disabled (LANGFUSE_*_KEY not set)")
+        return None
+    from langfuse import Langfuse
+
+    client = Langfuse(
+        public_key=settings.langfuse_public_key,
+        secret_key=settings.langfuse_secret_key,
+        host=settings.langfuse_base_url,
+    )
+    logger.info("Langfuse tracing enabled (host=%s)", settings.langfuse_base_url)
+    return client
+
+
+def _build_text_generation(
+    settings: Settings, tracer: "Langfuse | None" = None
+) -> TextGenerationPort:
     if settings.ai_provider == "gemini":
-        return GeminiLlm(api_key=settings.gemini_api_key, model=settings.gemini_llm_model)
+        return GeminiLlm(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_llm_model,
+            tracer=tracer,
+        )
     # onprem (GLM/vLLM) structured-generation adapter lands later.
     raise NotImplementedError(
         f"AI_PROVIDER={settings.ai_provider!r} generation adapter not implemented yet"
@@ -181,6 +211,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             await engine.dispose()
             logger.info("Database engine disposed")
+            tracer = getattr(app.state, "langfuse", None)
+            if tracer is not None:
+                tracer.flush()
+                logger.info("Langfuse tracer flushed")
 
     app = FastAPI(title="Tabular Review Backend", lifespan=lifespan)
 
@@ -196,7 +230,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.document_conversion_service = _build_document_conversion_service(settings)
     app.state.llm_proxy_service = _build_llm_proxy_service(settings)
     app.state.embedder = _build_embedder(settings)
-    app.state.text_generation = _build_text_generation(settings)
+    app.state.langfuse = _build_langfuse(settings)
+    app.state.text_generation = _build_text_generation(settings, app.state.langfuse)
     app.state.storage = _build_storage(settings)
     # Session-scoped services: store factories; dependencies bind a request session.
     app.state.document_db_service_factory = _build_document_db_service
