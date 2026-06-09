@@ -27,9 +27,12 @@ ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUNBUFFERED=1
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
 ENV HF_HUB_DISABLE_XET=1
-# Fixed in-container Docling model cache path (matches the docling-cache volume
-# mount). Docling reads this from the OS env directly (not via app config).
-ENV DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
+# NOTE: DOCLING_ARTIFACTS_PATH is intentionally NOT set. Docling treats it as an
+# OFFLINE model dir — if set but empty it errors ("must point to a folder
+# containing all models"). Left unset, Docling downloads models on first use to
+# the HF cache (/root/.cache/huggingface, persisted by the hf-cache volume).
+# For an air-gapped deploy, prefetch with scripts/download_docling_models.py and
+# set DOCLING_ARTIFACTS_PATH (in .env) to that populated directory.
 
 # uv settings: use system Python, copy (not hardlink) into the layer, compile bytecode.
 ENV UV_PYTHON_DOWNLOADS=never
