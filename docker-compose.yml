@@ -92,29 +92,28 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* are inlined into the bundle at BUILD time, so they MUST be
+      # passed as build args (env_file/runtime env is ignored by the built app).
+      # Values are interpolated from the root .env (single source of truth).
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
-        NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL:-glm-5}
-        NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
-        # Mock toggles (per-domain falls back to global). Default mock-first.
-        NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS:-true}
-        NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
-        NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
-        NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW:-true}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL}
+        NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS}
+        # Mock toggles (per-domain falls back to global). "false" => real API.
+        NEXT_PUBLIC_USE_MOCKS: ${NEXT_PUBLIC_USE_MOCKS}
+        NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
+        NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT}
+        NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW}
     container_name: tabular-review-frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "13002:3000"
+    # Runtime config only. NEXT_PUBLIC_* are already baked at build time (above),
+    # so they are intentionally NOT repeated here. Backend secrets stay out of
+    # the frontend container by design (no env_file: .env here).
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://10.10.190.4:18002}
-      - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL:-glm-5}
-      - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS:-120000}
-      - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS:-true}
-      - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB:-true}
-      - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT:-true}
-      - NEXT_PUBLIC_USE_MOCKS_REVIEW=${NEXT_PUBLIC_USE_MOCKS_REVIEW:-true}
       - NODE_ENV=${NODE_ENV:-production}
     networks:
       - tabular-review-network
