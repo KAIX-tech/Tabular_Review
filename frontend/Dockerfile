@@ -20,7 +20,11 @@ ENV NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=$NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB
 ENV NEXT_PUBLIC_USE_MOCKS_CHAT=$NEXT_PUBLIC_USE_MOCKS_CHAT
 ENV NEXT_PUBLIC_USE_MOCKS_REVIEW=$NEXT_PUBLIC_USE_MOCKS_REVIEW
 
-RUN npm install -g pnpm
+# Disable strict TLS for package installs — the internal network's proxy
+# intercepts registry TLS with a corporate cert. (Affects registry fetches only;
+# pnpm reads the same ~/.npmrc.)
+RUN npm config set strict-ssl false \
+    && npm install -g pnpm@9
 
 # Install dependencies first for layer caching.
 COPY package.json pnpm-lock.yaml ./
