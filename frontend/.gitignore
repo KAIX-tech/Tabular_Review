@@ -8,3 +8,5 @@ dist
 .DS_Store
 next-env.d.ts
 tsconfig.tsbuildinfo
+# pnpm store (the dev container keeps its store inside the node_modules volume)
+.pnpm-store

@@ -127,7 +127,9 @@ services:
       - -c
       - |
         npm install -g pnpm@9
-        pnpm install --frozen-lockfile
+        # Keep the pnpm store inside the node_modules volume (not the host bind
+        # mount) so it doesn't litter ./frontend and hardlinks work.
+        pnpm install --frozen-lockfile --store-dir /app/node_modules/.pnpm-store
         exec pnpm dev -- -H 0.0.0.0
     networks:
       - tabular-review-network
