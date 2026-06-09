@@ -51,7 +51,10 @@ from app.domains.extraction.interface.router import router as extraction_router
 from app.domains.ingestion.application.processor import DocumentProcessor
 from app.domains.ingestion.application.service import IngestionService
 from app.domains.ingestion.domain.ports import DocumentNotFoundError
-from app.domains.ingestion.infrastructure.repositories import SqlAlchemyDocumentRepository
+from app.domains.ingestion.infrastructure.repositories import (
+    SqlAlchemyDocumentChunkRepository,
+    SqlAlchemyDocumentRepository,
+)
 from app.domains.ingestion.interface.router import router as ingestion_router
 from app.domains.llm.application.service import LlmProxyService
 from app.domains.llm.domain.ports import TextGenerationPort
@@ -163,6 +166,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         app.state.extraction_processor = ExtractionProcessor(
             sessionmaker=app.state.sessionmaker,
+            cell_repo_factory=SqlAlchemyCellRepository,
+            run_repo_factory=SqlAlchemyExtractionRunRepository,
+            document_repo_factory=SqlAlchemyDocumentRepository,
+            column_repo_factory=SqlAlchemyDocumentColumnRepository,
+            chunk_repo_factory=SqlAlchemyDocumentChunkRepository,
             text_generation=app.state.text_generation,
             embedder=app.state.embedder,
             context_token_budget=max(1000, settings.llm_context_tokens - _CONTEXT_RESERVE_TOKENS),

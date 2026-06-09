@@ -312,7 +312,13 @@ export const DocumentDbReviewPage: React.FC = () => {
 
   const handleRunAnalysis = () => {
     if (realIngestion) {
-      if (gridDocuments.length === 0 || columns.length === 0 || activeRunId) return;
+      if (
+        gridDocuments.length === 0 ||
+        columns.length === 0 ||
+        activeRunId ||
+        createRunMutation.isPending
+      )
+        return;
       createRunMutation.mutate(
         { overwriteReviewed: false },
         { onSuccess: (run) => setActiveRunId(run.id) },
@@ -619,10 +625,20 @@ export const DocumentDbReviewPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRunAnalysis}
-                disabled={gridDocuments.length === 0 || columns.length === 0}
+                disabled={
+                  gridDocuments.length === 0 || columns.length === 0 || createRunMutation.isPending
+                }
                 className="flex items-center gap-2 px-4 py-1.5 bg-ink hover:bg-ink/90 text-white text-xs font-bold rounded-lg transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Play className="w-3.5 h-3.5 fill-current" />추출 실행
+                {createRunMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />요청 중…
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />추출 실행
+                  </>
+                )}
               </button>
             )
           ) : isProcessing ? (

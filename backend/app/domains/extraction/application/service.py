@@ -56,14 +56,17 @@ class ExtractionService:
         overwrite_reviewed: bool,
         model: str,
     ) -> ExtractionRun:
-        # Resolve scope: only READY documents are extractable.
+        # Resolve scope: only READY documents are extractable. `None` means "all";
+        # an explicit empty list is respected (no silent expansion).
         all_docs = await self._documents.list_by_db(document_db_id)
         ready = {d.id for d in all_docs if d.status == DocumentStatus.READY}
-        doc_ids = [d for d in (document_ids or list(ready)) if d in ready]
+        selected_docs = list(ready) if document_ids is None else document_ids
+        doc_ids = [d for d in selected_docs if d in ready]
 
         all_cols = await self._columns.list_by_db(document_db_id)
         col_set = {c.id for c in all_cols}
-        col_ids = [c for c in (column_ids or list(col_set)) if c in col_set]
+        selected_cols = list(col_set) if column_ids is None else column_ids
+        col_ids = [c for c in selected_cols if c in col_set]
 
         total = len(doc_ids) * len(col_ids)
         run = await self._runs.add(

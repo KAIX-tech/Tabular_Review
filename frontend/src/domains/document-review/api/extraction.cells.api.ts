@@ -1,40 +1,18 @@
 import axios from "axios";
 import { z } from "zod";
 import { getApiUrl } from "@/shared/api/config";
-import type { ExtractionCell, ExtractionResult } from "../model/types";
+import {
+  type CellDto,
+  cellSchema,
+  type ExtractionCell,
+  type ExtractionResult,
+  type ExtractionRunDto,
+  extractionRunSchema,
+} from "../model/types";
 
-const cellSourceSchema = z.object({
-  chunkId: z.string().nullish(),
-  quote: z.string(),
-  page: z.number().int().nullish(),
-});
+export type { ExtractionRunDto } from "../model/types";
 
-const cellSchema = z.object({
-  id: z.string(),
-  documentId: z.string(),
-  columnId: z.string(),
-  value: z.string().nullish(),
-  valueJson: z.unknown().nullish(),
-  confidence: z.enum(["high", "medium", "low"]).nullish(),
-  reasoning: z.string().nullish(),
-  extractionMethod: z.enum(["full_context", "retrieval_fallback"]).nullish(),
-  extractionStatus: z.enum(["idle", "queued", "running", "done", "error"]),
-  reviewStatus: z.enum(["unreviewed", "verified", "edited", "rejected"]),
-  sources: z.array(cellSourceSchema),
-});
-type CellDto = z.infer<typeof cellSchema>;
-
-const runSchema = z.object({
-  id: z.string(),
-  documentDbId: z.string(),
-  status: z.enum(["queued", "running", "completed", "failed", "canceled"]),
-  total: z.number().int(),
-  done: z.number().int(),
-  failed: z.number().int(),
-});
-export type ExtractionRunDto = z.infer<typeof runSchema>;
-
-const CONFIDENCE: Record<string, ExtractionCell["confidence"]> = {
+const CONFIDENCE: Record<string, NonNullable<ExtractionCell["confidence"]>> = {
   high: "High",
   medium: "Medium",
   low: "Low",
@@ -51,7 +29,8 @@ function toCell(dto: CellDto): ExtractionCell {
   return {
     id: dto.id,
     value: dto.value ?? "",
-    confidence: dto.confidence ? CONFIDENCE[dto.confidence] : "Low",
+    // Preserve unknown confidence (don't downgrade null to "Low").
+    confidence: dto.confidence != null ? CONFIDENCE[dto.confidence] : undefined,
     quote: src?.quote ?? "",
     page: src?.page ?? 0,
     reasoning: dto.reasoning ?? "",
@@ -82,12 +61,12 @@ export async function createRun(
   input: CreateRunInput,
 ): Promise<ExtractionRunDto> {
   const { data } = await axios.post(`${getApiUrl()}/document-dbs/${documentDbId}/runs`, input);
-  return runSchema.parse(data);
+  return extractionRunSchema.parse(data);
 }
 
 export async function getRun(runId: string): Promise<ExtractionRunDto> {
   const { data } = await axios.get(`${getApiUrl()}/runs/${runId}`);
-  return runSchema.parse(data);
+  return extractionRunSchema.parse(data);
 }
 
 export async function reviewCell(

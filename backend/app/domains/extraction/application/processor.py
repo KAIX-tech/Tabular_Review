@@ -9,19 +9,22 @@ Per document in the run scope:
 Re-extraction preserves human-edited/verified cells unless overwriteReviewed.
 The returned quote is mapped back to a chunk for the CellSource (citation jump).
 
-Layering note: like the ingestion processor, this owns its session lifecycle and
-instantiates infrastructure repositories directly (composition-root exception).
+This processor owns its session lifecycle (background task), so concrete repos
+are supplied as per-session factories injected by the composition root (main.py).
+It depends only on domain ports, never on infrastructure.
 """
 
 from __future__ import annotations
 
 from uuid import UUID
 
+from collections.abc import Callable
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.logging import get_logger
 from app.domains.document_db.domain.models import DocumentColumn
-from app.domains.document_db.infrastructure.repositories import SqlAlchemyDocumentColumnRepository
+from app.domains.document_db.domain.ports import DocumentColumnRepository
 from app.domains.embedding.domain.ports import EmbeddingError, EmbeddingPort
 from app.domains.extraction.domain.models import (
     Confidence,
@@ -29,19 +32,25 @@ from app.domains.extraction.domain.models import (
     ReviewStatus,
     RunStatus,
 )
-from app.domains.extraction.domain.ports import NewCellSource
-from app.domains.extraction.infrastructure.repositories import (
-    SqlAlchemyCellRepository,
-    SqlAlchemyExtractionRunRepository,
+from app.domains.extraction.domain.ports import (
+    CellRepository,
+    ExtractionRunRepository,
+    NewCellSource,
 )
 from app.domains.ingestion.domain.models import DocumentChunk
-from app.domains.ingestion.infrastructure.repositories import (
-    SqlAlchemyDocumentChunkRepository,
-    SqlAlchemyDocumentRepository,
-)
+from app.domains.ingestion.domain.ports import DocumentChunkRepository, DocumentRepository
 from app.domains.llm.domain.ports import LlmUpstreamError, TextGenerationPort
 
 logger = get_logger(__name__)
+
+# Repository factories bind a port implementation to a given session. The concrete
+# SQLAlchemy classes are injected by the composition root (main.py), so this
+# application module depends only on domain ports.
+CellRepoFactory = Callable[[AsyncSession], CellRepository]
+RunRepoFactory = Callable[[AsyncSession], ExtractionRunRepository]
+DocumentRepoFactory = Callable[[AsyncSession], DocumentRepository]
+ColumnRepoFactory = Callable[[AsyncSession], DocumentColumnRepository]
+ChunkRepoFactory = Callable[[AsyncSession], DocumentChunkRepository]
 
 _CHARS_PER_TOKEN = 2.0  # conservative estimate (Korean-heavy legal text)
 _MAX_OUTPUT_TOKENS = 4096
@@ -79,12 +88,22 @@ class ExtractionProcessor:
         self,
         *,
         sessionmaker: async_sessionmaker[AsyncSession],
+        cell_repo_factory: CellRepoFactory,
+        run_repo_factory: RunRepoFactory,
+        document_repo_factory: DocumentRepoFactory,
+        column_repo_factory: ColumnRepoFactory,
+        chunk_repo_factory: ChunkRepoFactory,
         text_generation: TextGenerationPort,
         embedder: EmbeddingPort,
         context_token_budget: int,
         fallback_top_n: int = 8,
     ) -> None:
         self._sessionmaker = sessionmaker
+        self._cell_repo_factory = cell_repo_factory
+        self._run_repo_factory = run_repo_factory
+        self._document_repo_factory = document_repo_factory
+        self._column_repo_factory = column_repo_factory
+        self._chunk_repo_factory = chunk_repo_factory
         self._llm = text_generation
         self._embedder = embedder
         self._budget = context_token_budget
@@ -92,11 +111,11 @@ class ExtractionProcessor:
 
     async def process(self, run_id: UUID) -> None:
         async with self._sessionmaker() as session:
-            cells = SqlAlchemyCellRepository(session)
-            runs = SqlAlchemyExtractionRunRepository(session)
-            documents = SqlAlchemyDocumentRepository(session)
-            columns_repo = SqlAlchemyDocumentColumnRepository(session)
-            chunks = SqlAlchemyDocumentChunkRepository(session)
+            cells = self._cell_repo_factory(session)
+            runs = self._run_repo_factory(session)
+            documents = self._document_repo_factory(session)
+            columns_repo = self._column_repo_factory(session)
+            chunks = self._chunk_repo_factory(session)
 
             run = await runs.get(run_id)
             if run is None:
@@ -134,10 +153,10 @@ class ExtractionProcessor:
         columns: list[DocumentColumn],
         overwrite: bool,
         *,
-        cells: SqlAlchemyCellRepository,
-        runs: SqlAlchemyExtractionRunRepository,
-        documents: SqlAlchemyDocumentRepository,
-        chunks: SqlAlchemyDocumentChunkRepository,
+        cells: CellRepository,
+        runs: ExtractionRunRepository,
+        documents: DocumentRepository,
+        chunks: DocumentChunkRepository,
     ) -> None:
         doc = await documents.get(doc_id)
         if doc is None:
@@ -168,7 +187,12 @@ class ExtractionProcessor:
 
         doc_chunks = await chunks.list_by_document(doc_id)
 
-        if self._estimate_tokens(markdown) <= self._budget:
+        # Budget check must account for the prompt (system + column spec) and the
+        # reserved output, not just the document — else near-threshold inputs
+        # overflow in full-context mode instead of taking the fallback.
+        overhead = self._estimate_tokens(_SYSTEM_PROMPT + self._column_spec(to_process))
+        estimated = self._estimate_tokens(markdown) + overhead + _MAX_OUTPUT_TOKENS
+        if estimated <= self._budget:
             await self._extract_full_context(
                 session, run_id, doc_id, to_process, markdown, doc_chunks, cells, runs
             )
@@ -214,12 +238,15 @@ class ExtractionProcessor:
                 await runs.bump(run_id, failed=1)
             await session.commit()
 
-    async def _generate(self, content: str, columns: list[DocumentColumn]) -> dict[str, dict]:
-        spec = "\n".join(
+    @staticmethod
+    def _column_spec(columns: list[DocumentColumn]) -> str:
+        return "\n".join(
             f"- columnId={c.id} | label={c.name} | type={c.data_type.value} | 질문: {c.prompt}"
             for c in columns
         )
-        user = f"문서 내용:\n{content}\n\n추출할 컬럼:\n{spec}"
+
+    async def _generate(self, content: str, columns: list[DocumentColumn]) -> dict[str, dict]:
+        user = f"문서 내용:\n{content}\n\n추출할 컬럼:\n{self._column_spec(columns)}"
         out = await self._llm.generate_json(
             system=_SYSTEM_PROMPT, user=user, max_output_tokens=_MAX_OUTPUT_TOKENS
         )

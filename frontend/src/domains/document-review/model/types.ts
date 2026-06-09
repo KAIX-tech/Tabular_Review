@@ -55,7 +55,7 @@ export interface Column {
 
 export interface ExtractionCell {
   value: string;
-  confidence: "High" | "Medium" | "Low";
+  confidence?: "High" | "Medium" | "Low";
   quote: string;
   page: number;
   reasoning: string;
@@ -87,3 +87,36 @@ export interface ColumnLibrary {
   version: 1;
   templates: ColumnTemplate[];
 }
+
+// --- Extraction cells / runs (backend `extraction` context) ---
+// Domain source of truth for the API response shapes (validated in api/*.ts).
+export const cellSourceSchema = z.object({
+  chunkId: z.string().nullish(),
+  quote: z.string(),
+  page: z.number().int().nullish(),
+});
+
+export const cellSchema = z.object({
+  id: z.string(),
+  documentId: z.string(),
+  columnId: z.string(),
+  value: z.string().nullish(),
+  valueJson: z.unknown().nullish(),
+  confidence: z.enum(["high", "medium", "low"]).nullish(),
+  reasoning: z.string().nullish(),
+  extractionMethod: z.enum(["full_context", "retrieval_fallback"]).nullish(),
+  extractionStatus: z.enum(["idle", "queued", "running", "done", "error"]),
+  reviewStatus: z.enum(["unreviewed", "verified", "edited", "rejected"]),
+  sources: z.array(cellSourceSchema),
+});
+export type CellDto = z.infer<typeof cellSchema>;
+
+export const extractionRunSchema = z.object({
+  id: z.string(),
+  documentDbId: z.string(),
+  status: z.enum(["queued", "running", "completed", "failed", "canceled"]),
+  total: z.number().int(),
+  done: z.number().int(),
+  failed: z.number().int(),
+});
+export type ExtractionRunDto = z.infer<typeof extractionRunSchema>;

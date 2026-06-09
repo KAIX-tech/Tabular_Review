@@ -14,6 +14,20 @@ export const documentDbSchema = z.object({
 
 export type DocumentDb = z.infer<typeof documentDbSchema>;
 
+// Backend DocumentColumn response shape (validated in api/columns.api.ts).
+export const columnResponseSchema = z.object({
+  id: z.string(),
+  documentDbId: z.string(),
+  name: z.string(),
+  dataType: z.string(),
+  prompt: z.string(),
+  options: z.array(z.string()).nullish(),
+  position: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ColumnResponse = z.infer<typeof columnResponseSchema>;
+
 // Project export/import file format (not an API entity).
 export interface SavedProject {
   version: 1;

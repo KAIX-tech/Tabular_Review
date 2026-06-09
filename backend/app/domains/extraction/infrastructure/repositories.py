@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import column, select, table
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -115,12 +116,27 @@ class SqlAlchemyCellRepository(CellRepository):
         return _to_cell(orm) if orm is not None else None
 
     async def set_running(self, document_id: UUID, column_id: UUID, run_id: UUID) -> None:
-        orm = await self._get_orm(document_id, column_id)
-        if orm is None:
-            orm = CellOrm(document_id=document_id, column_id=column_id)
-            self._session.add(orm)
-        orm.extraction_status = ExtractionStatus.RUNNING.value
-        orm.last_run_id = run_id
+        # Atomic upsert keyed by uq_cell_doc_col: creates the cell row (or flips an
+        # existing one to running) in one statement, avoiding a check-then-insert
+        # race between concurrent runs. save_result/set_error always run after this.
+        stmt = (
+            pg_insert(CellOrm)
+            .values(
+                document_id=document_id,
+                column_id=column_id,
+                extraction_status=ExtractionStatus.RUNNING.value,
+                review_status=ReviewStatus.UNREVIEWED.value,
+                last_run_id=run_id,
+            )
+            .on_conflict_do_update(
+                index_elements=["document_id", "column_id"],
+                set_={
+                    "extraction_status": ExtractionStatus.RUNNING.value,
+                    "last_run_id": run_id,
+                },
+            )
+        )
+        await self._session.execute(stmt)
         await self._session.flush()
 
     async def save_result(
