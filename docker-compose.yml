@@ -126,8 +126,9 @@ services:
       - /bin/sh
       - -c
       - |
-        # Disable strict TLS for installs (internal proxy intercepts registry TLS).
-        npm config set strict-ssl false
+        # Registry TLS verification (default on). Set NPM_STRICT_SSL=false in .env
+        # only on a TLS-intercepting internal network.
+        npm config set strict-ssl ${NPM_STRICT_SSL:-true}
         npm install -g pnpm@9
         # Keep the pnpm store inside the node_modules volume (not the host bind
         # mount) so it doesn't litter ./frontend and hardlinks work.

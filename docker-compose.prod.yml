@@ -43,6 +43,9 @@ services:
         NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB: ${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
         NEXT_PUBLIC_USE_MOCKS_CHAT: ${NEXT_PUBLIC_USE_MOCKS_CHAT}
         NEXT_PUBLIC_USE_MOCKS_REVIEW: ${NEXT_PUBLIC_USE_MOCKS_REVIEW}
+        # Registry TLS verification (default on). Set false in .env only on a
+        # TLS-intercepting internal network.
+        NPM_STRICT_SSL: ${NPM_STRICT_SSL:-true}
     container_name: tabular-review-frontend
     restart: unless-stopped
     depends_on:
