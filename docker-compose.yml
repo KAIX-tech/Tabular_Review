@@ -130,7 +130,8 @@ services:
         # Keep the pnpm store inside the node_modules volume (not the host bind
         # mount) so it doesn't litter ./frontend and hardlinks work.
         pnpm install --frozen-lockfile --store-dir /app/node_modules/.pnpm-store
-        exec pnpm dev -- -H 0.0.0.0
+        # Call next directly (not `pnpm dev --`, which leaks `--` into next's args).
+        exec pnpm exec next dev -H 0.0.0.0 -p 3000
     networks:
       - tabular-review-network
 
