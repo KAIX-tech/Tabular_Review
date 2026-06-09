@@ -23,9 +23,16 @@ services:
     # All config from .env (managed db/minio hostnames included — no overrides).
     env_file:
       - .env
+    # Use the host-mounted Docling models offline (air-gapped). No in-container
+    # download — point Docling at the read-only bind mount below.
+    environment:
+      - DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
     volumes:
-      # Persist Docling/HF model caches across restarts.
-      - docling-cache:/root/.cache/docling
+      # Pre-downloaded Docling models on the host (folders like
+      # docling-project--docling-layout-heron / --docling-models). Populate the
+      # host dir once (prefetch script or the docling-models-bundle), then this
+      # read-only mount serves them — no HF access needed at runtime.
+      - ${DOCLING_MODELS_HOST_PATH:-./docling-models}:/root/.cache/docling/models:ro
       - hf-cache:/root/.cache/huggingface
     networks:
       - tabular-review-network
@@ -61,5 +68,4 @@ networks:
     driver: bridge
 
 volumes:
-  docling-cache:
   hf-cache:
