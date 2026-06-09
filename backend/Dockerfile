@@ -34,6 +34,13 @@ ENV HF_HUB_DISABLE_XET=1
 # For an air-gapped deploy, prefetch with scripts/download_docling_models.py and
 # set DOCLING_ARTIFACTS_PATH (in .env) to that populated directory.
 
+# Pre-create the model/cache dirs with broad write perms so the mounted volumes
+# are writable (incl. when the container runs as a non-root user) and the
+# in-container prefetch can write models.
+RUN mkdir -p /root/.cache/docling/models /root/.cache/huggingface \
+    && chmod -R 777 /root/.cache \
+    && chmod 755 /root
+
 # uv settings: use system Python, copy (not hardlink) into the layer, compile bytecode.
 ENV UV_PYTHON_DOWNLOADS=never
 ENV UV_LINK_MODE=copy

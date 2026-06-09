@@ -20,12 +20,10 @@ ENV NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=$NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB
 ENV NEXT_PUBLIC_USE_MOCKS_CHAT=$NEXT_PUBLIC_USE_MOCKS_CHAT
 ENV NEXT_PUBLIC_USE_MOCKS_REVIEW=$NEXT_PUBLIC_USE_MOCKS_REVIEW
 
-# npm/pnpm registry TLS verification. Defaults to ON (secure). On a
-# TLS-intercepting internal network, build with --build-arg NPM_STRICT_SSL=false
-# (preferably instead add the corporate root CA via NODE_EXTRA_CA_CERTS / npm
-# cafile and keep verification on). pnpm reads the same ~/.npmrc.
-ARG NPM_STRICT_SSL=true
-RUN npm config set strict-ssl "$NPM_STRICT_SSL" \
+# Internal network intercepts npm-registry TLS with a corporate cert, so disable
+# strict-ssl for installs. (Registry fetches only; pnpm reads the same ~/.npmrc.)
+# NOTE: weakens TLS verification — acceptable here for the closed internal deploy.
+RUN npm config set strict-ssl false \
     && npm install -g pnpm@9
 
 # Install dependencies first for layer caching.
