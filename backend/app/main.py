@@ -41,6 +41,7 @@ from app.domains.document_db.infrastructure.repositories import (
 from app.domains.document_db.interface.router import router as document_db_router
 from app.domains.embedding.domain.ports import EmbeddingPort
 from app.domains.embedding.infrastructure.gemini_embedder import GeminiEmbedder
+from app.domains.embedding.infrastructure.tei_embedder import TeiEmbedder
 from app.domains.extraction.application.processor import ExtractionProcessor
 from app.domains.extraction.application.service import ExtractionService
 from app.domains.extraction.domain.ports import CellNotFoundError, ExtractionRunNotFoundError
@@ -61,6 +62,7 @@ from app.domains.llm.application.service import LlmProxyService
 from app.domains.llm.domain.ports import TextGenerationPort
 from app.domains.llm.infrastructure.gemini_llm import GeminiLlm
 from app.domains.llm.infrastructure.vllm_client import VllmClient
+from app.domains.llm.infrastructure.vllm_text_generation import VllmTextGeneration
 from app.domains.llm.interface.router import router as llm_router
 from app.domains.storage.infrastructure.minio_storage import MinioStorage
 
@@ -97,9 +99,12 @@ def _build_embedder(settings: Settings) -> EmbeddingPort:
             model=settings.gemini_embedding_model,
             dimension=settings.embedding_dim,
         )
-    # onprem (BGE-M3) adapter lands later; fail clearly if selected now.
-    raise NotImplementedError(
-        f"AI_PROVIDER={settings.ai_provider!r} embedding adapter not implemented yet"
+    # onprem: BGE-M3 served via HF Text-Embeddings-Inference.
+    return TeiEmbedder(
+        base_url=settings.embedding_base_url,
+        api_key=settings.embedding_api_key,
+        dimension=settings.embedding_dim,
+        timeout_seconds=settings.embedding_timeout_seconds,
     )
 
 
@@ -132,9 +137,17 @@ def _build_text_generation(
             model=settings.gemini_llm_model,
             tracer=tracer,
         )
-    # onprem (GLM/vLLM) structured-generation adapter lands later.
-    raise NotImplementedError(
-        f"AI_PROVIDER={settings.ai_provider!r} generation adapter not implemented yet"
+    # onprem: GLM via vLLM (OpenAI-compatible), reusing the VllmClient transport.
+    vllm_client = VllmClient(
+        base_url=settings.vllm_base_url,
+        api_key=settings.vllm_api_key,
+        timeout_seconds=settings.vllm_timeout_seconds,
+    )
+    return VllmTextGeneration(
+        client=vllm_client,
+        model=settings.vllm_model,
+        json_object_mode=settings.vllm_json_object_mode,
+        tracer=tracer,
     )
 
 

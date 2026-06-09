@@ -68,6 +68,19 @@ class Settings(BaseSettings):
     )
     gemini_llm_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_LLM_MODEL")
 
+    # --- On-prem embedding (HF Text-Embeddings-Inference; BGE-M3) ---
+    # Used when AI_PROVIDER=onprem. The TEI server hosts a single model, so only
+    # the base URL (+ optional bearer key) is needed; vectors must be `embedding_dim`.
+    embedding_base_url: str = Field(default="", alias="EMBEDDING_BASE_URL")
+    embedding_api_key: str = Field(default="", alias="EMBEDDING_API_KEY")
+    embedding_timeout_seconds: float = Field(default=60.0, alias="EMBEDDING_TIMEOUT_SECONDS")
+
+    # --- On-prem generation JSON mode (vLLM, reuses VLLM_* below) ---
+    # When true, send OpenAI `response_format={"type":"json_object"}` (vLLM guided
+    # decoding). Disable if the served model/vLLM build rejects it (prompt still
+    # instructs JSON either way).
+    vllm_json_object_mode: bool = Field(default=True, alias="VLLM_JSON_OBJECT_MODE")
+
     # --- Langfuse (LLM call tracing; optional) ---
     # Tracing is enabled only when both keys are present (see `langfuse_enabled`).
     langfuse_secret_key: str = Field(default="", alias="LANGFUSE_SECRET_KEY")
