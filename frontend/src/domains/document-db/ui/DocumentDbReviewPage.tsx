@@ -486,12 +486,13 @@ export const DocumentDbReviewPage: React.FC = () => {
   const sidebarData = getSidebarData();
   const currentModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
 
-  const sidebarWidthClass =
+  // The detail view is a floating panel that overlays the grid (it doesn't reflow
+  // the grid). Width tracks the expanded state; visibility is a slide on translateX.
+  const sidebarWidthClass = isSidebarExpanded ? "w-[900px]" : "w-[400px]";
+  const sidebarVisibilityClass =
     sidebarMode === "none"
-      ? "w-0 translate-x-10 opacity-0 overflow-hidden"
-      : isSidebarExpanded
-        ? "w-[900px] translate-x-0"
-        : "w-[400px] translate-x-0";
+      ? "translate-x-full opacity-0 pointer-events-none"
+      : "translate-x-0 opacity-100";
 
   const addDocument = () => !isConverting && fileInputRef.current?.click();
 
@@ -730,9 +731,9 @@ export const DocumentDbReviewPage: React.FC = () => {
         />
 
         <div
-          className={`transition-colors duration-300 ease-in-out border-l border-border bg-surface shadow-popover z-30 relative ${sidebarWidthClass}`}
+          className={`absolute top-0 right-0 bottom-0 max-w-full border-l border-border bg-surface shadow-popover z-30 flex flex-col transition-[transform,opacity] duration-300 ease-in-out ${sidebarWidthClass} ${sidebarVisibilityClass}`}
         >
-          <div className="w-full h-full absolute right-0 top-0 flex flex-col">
+          <div className="w-full h-full flex flex-col">
             {sidebarMode === "verify" && sidebarData && (
               <VerificationSidebar
                 cell={sidebarData.cell}

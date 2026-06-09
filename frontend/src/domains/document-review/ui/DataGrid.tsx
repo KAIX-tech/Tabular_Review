@@ -175,8 +175,8 @@ export const DataGrid: React.FC<DataGridProps> = ({
       <table className="w-full text-left border-collapse table-fixed">
         <thead className="bg-white sticky top-0 z-20 shadow-[0_1px_0_0_rgba(0,0,0,0.1)]">
           <tr>
-            {/* Checkbox Column Header - Sticky Left 0 */}
-            <th className="w-12 border-b border-r border-slate-200 bg-white sticky left-0 z-30 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
+            {/* Checkbox Column Header - Sticky Left 0 (no right shadow; the doc column owns the freeze divider) */}
+            <th className="w-12 border-b border-r border-slate-200 bg-white sticky left-0 z-30">
               {documents.length > 0 && onToggleAllDocSelection && (
                 <button
                   onClick={onToggleAllDocSelection}
@@ -249,8 +249,8 @@ export const DataGrid: React.FC<DataGridProps> = ({
             const isDocSelected = selectedDocIds.has(doc.id);
             return (
             <tr key={doc.id} className={`group hover:bg-slate-50/80 transition-colors ${isDocSelected ? 'bg-amber-50/50' : ''}`}>
-              {/* Checkbox Column Body - Sticky Left 0 */}
-              <td className={`border-b border-r border-slate-200 text-center sticky left-0 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] ${isDocSelected ? 'bg-amber-50' : 'bg-slate-50'}`}>
+              {/* Checkbox Column Body - Sticky Left 0 (matches doc cell bg so the frozen pane is one tone) */}
+              <td className={`border-b border-r border-slate-200 text-center sticky left-0 z-10 transition-colors ${isDocSelected ? 'bg-amber-50' : 'bg-white group-hover:bg-slate-50'}`}>
                 {onToggleDocSelection && (
                   <button
                     onClick={(e) => {
@@ -315,7 +315,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
                     <td 
                     key={`${doc.id}-${col.id}`} 
                     className={`p-3 border-b border-r border-slate-200 cursor-pointer transition-colors ${isTextWrapEnabled ? 'align-top' : 'h-14'}
-                        ${isSelected ? 'bg-indigo-50/60 ring-inset ring-2 ring-indigo-500 z-10' : 'hover:bg-slate-100/50'}
+                        ${isSelected ? 'bg-indigo-50/60 ring-inset ring-2 ring-indigo-500' : 'hover:bg-slate-100/50'}
                     `}
                     onClick={() => onCellClick(doc.id, col.id)}
                     style={{ width: col.width || 240 }}
@@ -331,10 +331,10 @@ export const DataGrid: React.FC<DataGridProps> = ({
            {/* Empty State / Ghost Rows to keep grid structure */}
            {Array.from({ length: Math.max(5, 20 - documents.length) }).map((_, i) => (
             <tr key={`empty-${i}`}>
-                <td className="border-b border-r border-slate-200 bg-slate-50/5 h-14 text-[10px] text-slate-300 text-center font-mono pt-4 sticky left-0 z-10">
+                <td className="border-b border-r border-slate-200 bg-white h-14 text-[10px] text-slate-300 text-center font-mono pt-4 sticky left-0 z-10">
                     {/* Number removed as requested for ghost rows */}
                 </td>
-                <td className="border-b border-r border-slate-200 bg-slate-50/5 sticky left-12 z-10"></td>
+                <td className="border-b border-r border-slate-200 bg-white sticky left-12 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"></td>
                 {columns.map(c => <td key={c.id} className="border-b border-r border-slate-200 bg-slate-50/5" style={{ width: c.width || 240 }}></td>)}
                 <td className="border-b border-slate-200"></td>
                 <td className="border-b border-slate-200"></td>
