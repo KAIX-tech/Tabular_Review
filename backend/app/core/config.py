@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Annotated, Literal
+from urllib.parse import quote_plus
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -27,11 +28,29 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
     # --- Database (PostgreSQL + pgvector, async driver) ---
-    database_url: str = Field(
-        default="postgresql+asyncpg://kalex:kalex@localhost:5432/kalex",
-        alias="DATABASE_URL",
-    )
+    # Discrete connection components so production can point at shared/managed
+    # infrastructure (just set POSTGRES_SERVER/PORT/...). The async SQLAlchemy URL
+    # is assembled from these in `database_url`.
+    postgres_server: str = Field(default="localhost", alias="POSTGRES_SERVER")
+    postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
+    postgres_db: str = Field(default="kalex", alias="POSTGRES_DB")
+    postgres_user: str = Field(default="kalex", alias="POSTGRES_USER")
+    postgres_password: str = Field(default="kalex", alias="POSTGRES_PASSWORD")
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
+
+    @property
+    def database_url(self) -> str:
+        """Async SQLAlchemy URL assembled from the POSTGRES_* components.
+
+        User/password are URL-encoded so special characters (e.g. in a managed-DB
+        password) don't corrupt the DSN.
+        """
+        user = quote_plus(self.postgres_user)
+        password = quote_plus(self.postgres_password)
+        return (
+            f"postgresql+asyncpg://{user}:{password}"
+            f"@{self.postgres_server}:{self.postgres_port}/{self.postgres_db}"
+        )
 
     # --- AI provider selection (embedding + generation adapters) ---
     # "gemini" (dev) or "onprem" (BGE-M3 + vLLM). The composition root picks adapters.

@@ -12,7 +12,9 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-kalex}
       - POSTGRES_DB=${POSTGRES_DB:-kalex}
     ports:
-      - "${POSTGRES_PORT:-15432}:5432"
+      # Host-published port (separate from POSTGRES_PORT, which is the in-network
+      # connection port = 5432). Defaults to 15432 to avoid clashing with a local pg.
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -72,8 +74,10 @@ services:
       - PYTHONIOENCODING=utf-8
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
-      # Service-to-service hostnames (.env points db/minio at localhost for host access).
-      - DATABASE_URL=postgresql+asyncpg://kalex:kalex@db:5432/kalex
+      # Service-to-service hostnames (.env points db/minio at localhost for host
+      # access; inside the network the app must reach the service names).
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
       - MINIO_ENDPOINT=minio:9000
       # In-container Docling model cache path (matches the mounted volume).
       - DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
