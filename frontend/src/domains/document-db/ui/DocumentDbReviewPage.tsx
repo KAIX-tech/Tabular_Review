@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   AddColumnMenu,
@@ -9,8 +9,12 @@ import {
   DocumentViewer,
   extractColumnData,
   processDocumentToMarkdown,
+  useCells,
+  useCreateRun,
   useDeleteDocument,
   useDocuments,
+  useReviewCell,
+  useRun,
   useUploadDocument,
   VerificationSidebar,
 } from "@/domains/document-review";
@@ -35,6 +39,12 @@ import {
   Square,
   WrapText,
 } from "@/shared/ui/icons";
+import {
+  useColumns,
+  useCreateColumn,
+  useDeleteColumn,
+  useUpdateColumn,
+} from "../api/columns.hooks";
 import { useDocumentDb } from "../api/document-db.hooks";
 
 const MODELS = [{ id: ENV.llmModel, name: "GLM-5", description: "On-prem vLLM", icon: Brain }];
@@ -46,8 +56,9 @@ export const DocumentDbReviewPage: React.FC = () => {
   const dbName = db?.name ?? "Document DB";
 
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
-  const [columns, setColumns] = useState<Column[]>([]);
-  const [results, setResults] = useState<ExtractionResult>({});
+  // Mock-mode local state; real mode derives columns/results from the backend.
+  const [localColumns, setColumns] = useState<Column[]>([]);
+  const [localResults, setResults] = useState<ExtractionResult>({});
 
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("none");
   const [selectedCell, setSelectedCell] = useState<{ docId: string; colId: string } | null>(null);
@@ -92,6 +103,30 @@ export const DocumentDbReviewPage: React.FC = () => {
   const documentStatuses: Record<string, DocumentStatus> | undefined = realIngestion
     ? Object.fromEntries((ingestedDocs ?? []).map((d) => [d.id, d.status]))
     : undefined;
+
+  // Real extraction: columns + cells come from the backend; runs fill the grid.
+  const realColumnsQuery = useColumns(realIngestion ? dbId : "");
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const cellsQuery = useCells(realIngestion ? dbId : "", !!activeRunId);
+  const runQuery = useRun(activeRunId);
+  const createRunMutation = useCreateRun(dbId);
+  const reviewMutation = useReviewCell(dbId);
+  const createColumnMutation = useCreateColumn(dbId);
+  const updateColumnMutation = useUpdateColumn(dbId);
+  const deleteColumnMutation = useDeleteColumn(dbId);
+
+  const columns: Column[] = realIngestion ? (realColumnsQuery.data ?? []) : localColumns;
+  const results: ExtractionResult = realIngestion ? (cellsQuery.data ?? {}) : localResults;
+  const realIsProcessing = realIngestion && !!activeRunId;
+
+  // Stop polling and do a final cells refresh when the run finishes.
+  const runStatus = runQuery.data?.status;
+  useEffect(() => {
+    if (activeRunId && (runStatus === "completed" || runStatus === "failed" || runStatus === "canceled")) {
+      setActiveRunId(null);
+      cellsQuery.refetch();
+    }
+  }, [runStatus, activeRunId, cellsQuery.refetch]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -167,6 +202,16 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleSaveColumn = (colDef: { name: string; type: ColumnType; prompt: string }) => {
+    if (realIngestion) {
+      if (editingColumnId) {
+        updateColumnMutation.mutate({ columnId: editingColumnId, input: colDef });
+      } else {
+        createColumnMutation.mutate(colDef);
+      }
+      setEditingColumnId(null);
+      setAddColumnAnchor(null);
+      return;
+    }
     if (editingColumnId) {
       setColumns((prev) => prev.map((c) => (c.id === editingColumnId ? { ...c, ...colDef } : c)));
       setEditingColumnId(null);
@@ -186,6 +231,16 @@ export const DocumentDbReviewPage: React.FC = () => {
 
   const handleDeleteColumn = () => {
     if (!editingColumnId) return;
+    if (realIngestion) {
+      deleteColumnMutation.mutate(editingColumnId);
+      if (selectedCell?.colId === editingColumnId) {
+        setSelectedCell(null);
+        setSidebarMode("none");
+      }
+      setEditingColumnId(null);
+      setAddColumnAnchor(null);
+      return;
+    }
     setColumns((prev) => prev.filter((c) => c.id !== editingColumnId));
     setResults((prev) => {
       const next = { ...prev };
@@ -212,6 +267,7 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleColumnResize = (colId: string, newWidth: number) => {
+    if (realIngestion) return; // column width isn't persisted server-side (yet)
     setColumns((prev) => prev.map((c) => (c.id === colId ? { ...c, width: newWidth } : c)));
   };
 
@@ -221,6 +277,15 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleSelectTemplate = (template: ColumnTemplate) => {
+    if (realIngestion) {
+      createColumnMutation.mutate({
+        name: template.name,
+        type: template.type,
+        prompt: template.prompt,
+      });
+      setIsLibraryOpen(false);
+      return;
+    }
     const newCol: Column = {
       id: `col_${Date.now()}`,
       name: template.name,
@@ -246,6 +311,14 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleRunAnalysis = () => {
+    if (realIngestion) {
+      if (gridDocuments.length === 0 || columns.length === 0 || activeRunId) return;
+      createRunMutation.mutate(
+        { overwriteReviewed: false },
+        { onSuccess: (run) => setActiveRunId(run.id) },
+      );
+      return;
+    }
     if (documents.length === 0 || columns.length === 0) return;
     processExtraction(documents, columns);
   };
@@ -278,9 +351,9 @@ export const DocumentDbReviewPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    if (documents.length === 0) return;
+    if (gridDocuments.length === 0) return;
     const headerRow = ["Document Name", ...columns.map((c) => c.name)];
-    const rows = documents.map((doc) => {
+    const rows = gridDocuments.map((doc) => {
       const rowData = [doc.name];
       columns.forEach((col) => {
         const cell = results[doc.id]?.[col.id];
@@ -379,6 +452,11 @@ export const DocumentDbReviewPage: React.FC = () => {
   const handleVerifyCell = () => {
     if (!selectedCell) return;
     const { docId, colId } = selectedCell;
+    if (realIngestion) {
+      const cellId = results[docId]?.[colId]?.id;
+      if (cellId) reviewMutation.mutate({ cellId, reviewStatus: "verified" });
+      return;
+    }
     setResults((prev) => ({
       ...prev,
       [docId]: { ...prev[docId], [colId]: { ...prev[docId][colId]!, status: "verified" } },
@@ -389,12 +467,12 @@ export const DocumentDbReviewPage: React.FC = () => {
     if (selectedCell) {
       return {
         cell: results[selectedCell.docId]?.[selectedCell.colId] || null,
-        document: documents.find((d) => d.id === selectedCell.docId) || null,
+        document: gridDocuments.find((d) => d.id === selectedCell.docId) || null,
         column: columns.find((c) => c.id === selectedCell.colId) || null,
       };
     }
     if (previewDocId) {
-      return { cell: null, document: documents.find((d) => d.id === previewDocId) || null, column: null };
+      return { cell: null, document: gridDocuments.find((d) => d.id === previewDocId) || null, column: null };
     }
     return null;
   };
@@ -473,7 +551,7 @@ export const DocumentDbReviewPage: React.FC = () => {
           <button
             type="button"
             onClick={handleExportCSV}
-            disabled={documents.length === 0}
+            disabled={gridDocuments.length === 0}
             title="CSV 내보내기"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-surface hover:bg-surface-muted text-ink-2 border border-border text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -528,14 +606,25 @@ export const DocumentDbReviewPage: React.FC = () => {
 
           {/* Run / Stop / Re-run */}
           {realIngestion ? (
-            <button
-              type="button"
-              disabled
-              title="추출 실행은 Phase 3에서 지원됩니다"
-              className="flex items-center gap-2 px-4 py-1.5 bg-ink text-white text-xs font-bold rounded-lg opacity-50 cursor-not-allowed"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />추출 실행
-            </button>
+            realIsProcessing ? (
+              <button
+                type="button"
+                disabled
+                className="flex items-center gap-2 px-4 py-1.5 bg-ink text-white text-xs font-bold rounded-lg opacity-70 cursor-wait"
+              >
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                추출 중 {runQuery.data?.done ?? 0}/{runQuery.data?.total ?? 0}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleRunAnalysis}
+                disabled={gridDocuments.length === 0 || columns.length === 0}
+                className="flex items-center gap-2 px-4 py-1.5 bg-ink hover:bg-ink/90 text-white text-xs font-bold rounded-lg transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />추출 실행
+              </button>
+            )
           ) : isProcessing ? (
             <button
               type="button"

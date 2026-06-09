@@ -123,19 +123,32 @@ export const DataGrid: React.FC<DataGridProps> = ({
          );
     }
 
+    // Real extraction: per-cell running state (cell exists with no value yet).
+    if (cell?.extractionStatus === 'running') {
+        return (
+            <div className="flex items-center gap-2 opacity-60">
+                <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                <span className="text-xs text-slate-400">추출 중…</span>
+            </div>
+        );
+    }
+
     if (!cell) return <span className="text-slate-300 text-xs italic opacity-0 group-hover:opacity-100 transition-opacity">-</span>;
-    
+
     const isSelected = selectedCell?.docId === docId && selectedCell?.colId === colId;
 
     return (
       <div className={`flex items-center justify-between w-full h-full ${isTextWrapEnabled ? 'items-start py-1' : ''}`}>
-        <span 
-            className={`text-sm ${isSelected ? 'font-medium' : ''} ${isTextWrapEnabled ? 'whitespace-pre-wrap break-words' : 'truncate max-w-[180px]'}`} 
+        <span
+            className={`text-sm ${isSelected ? 'font-medium' : ''} ${isTextWrapEnabled ? 'whitespace-pre-wrap break-words' : 'truncate max-w-[180px]'}`}
             title={cell.value}
         >
             {cell.value}
         </span>
-        <div className={`flex items-center gap-1 ${isTextWrapEnabled ? 'mt-1' : ''}`}>
+        <div className={`flex items-center gap-1 shrink-0 ${isTextWrapEnabled ? 'mt-1' : ''}`}>
+            {cell.extractionMethod === 'retrieval_fallback' && (
+                <span title="부분 컨텍스트 (검색 폴백)" className="text-[9px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 font-medium">부분</span>
+            )}
             {cell.status === 'verified' && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
             {cell.confidence === 'Low' && cell.status !== 'verified' && <AlertCircle className="w-3 h-3 text-amber-500" />}
         </div>

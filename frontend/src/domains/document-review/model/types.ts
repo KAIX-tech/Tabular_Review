@@ -61,6 +61,10 @@ export interface ExtractionCell {
   reasoning: string;
   // UI State for review workflow
   status?: "verified" | "needs_review" | "edited";
+  // Real extraction (Phase 3): backend cell id + how it was extracted.
+  id?: string;
+  extractionMethod?: "full_context" | "retrieval_fallback";
+  extractionStatus?: "idle" | "queued" | "running" | "done" | "error";
 }
 
 export interface ExtractionResult {
