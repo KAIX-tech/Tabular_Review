@@ -39,7 +39,8 @@ _document_tbl = table("document", column("id"), column("document_db_id"))
 
 def _to_source(orm: CellSourceOrm) -> CellSource:
     return CellSource(
-        id=orm.id, cell_id=orm.cell_id, chunk_id=orm.chunk_id, quote=orm.quote, page=orm.page
+        id=orm.id, cell_id=orm.cell_id, chunk_id=orm.chunk_id, quote=orm.quote, page=orm.page,
+        char_start=orm.char_start, char_end=orm.char_end,
     )
 
 
@@ -165,7 +166,11 @@ class SqlAlchemyCellRepository(CellRepository):
         orm.review_status = ReviewStatus.UNREVIEWED.value
         orm.last_run_id = run_id
         orm.sources = [
-            CellSourceOrm(chunk_id=s.chunk_id, quote=s.quote, page=s.page) for s in sources
+            CellSourceOrm(
+                chunk_id=s.chunk_id, quote=s.quote, page=s.page,
+                char_start=s.char_start, char_end=s.char_end,
+            )
+            for s in sources
         ]
         await self._session.flush()
         # Re-query with selectinload so `sources` is loaded async-safely for mapping.

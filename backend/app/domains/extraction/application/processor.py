@@ -16,6 +16,7 @@ It depends only on domain ports, never on infrastructure.
 
 from __future__ import annotations
 
+import re
 from uuid import UUID
 
 from collections.abc import Callable
@@ -81,6 +82,25 @@ def _match_chunk(quote: str, chunks: list[DocumentChunk]) -> DocumentChunk | Non
         if needle in hay or hay[:40] in " ".join(quote.split()):
             return chunk
     return None
+
+
+def _locate_quote(text: str, quote: str) -> tuple[int | None, int | None]:
+    """Character offsets of `quote` within `text` (the document markdown).
+
+    Tries an exact match first, then a whitespace-tolerant match (the model's
+    quote and the markdown can differ in spacing/newlines). Returns (None, None)
+    when not locatable so we never store wrong offsets.
+    """
+    q = quote.strip()
+    if not q or not text:
+        return (None, None)
+    idx = text.find(q)
+    if idx >= 0:
+        return (idx, idx + len(q))
+    match = re.search(r"\s+".join(re.escape(w) for w in q.split()), text)
+    if match:
+        return (match.start(), match.end())
+    return (None, None)
 
 
 class ExtractionProcessor:
@@ -198,7 +218,7 @@ class ExtractionProcessor:
             )
         else:
             await self._extract_fallback(
-                session, run_id, doc_id, to_process, doc_chunks, cells, runs, chunks
+                session, run_id, doc_id, to_process, doc_chunks, cells, runs, chunks, markdown
             )
 
     async def _extract_full_context(self, session, run_id, doc_id, columns, markdown, doc_chunks, cells, runs) -> None:
@@ -216,11 +236,11 @@ class ExtractionProcessor:
             return
         for col in columns:
             await self._save(cells, doc_id, col, results.get(str(col.id)),
-                             ExtractionMethod.FULL_CONTEXT, run_id, doc_chunks)
+                             ExtractionMethod.FULL_CONTEXT, run_id, doc_chunks, markdown)
             await runs.bump(run_id, done=1)
         await session.commit()
 
-    async def _extract_fallback(self, session, run_id, doc_id, columns, doc_chunks, cells, runs, chunks) -> None:
+    async def _extract_fallback(self, session, run_id, doc_id, columns, doc_chunks, cells, runs, chunks, markdown) -> None:
         for col in columns:
             await cells.set_running(doc_id, col.id, run_id)
             await session.commit()
@@ -230,7 +250,7 @@ class ExtractionProcessor:
                 context = "\n\n".join(c.text for c in ctx_chunks)
                 results = await self._generate(context, [col])
                 await self._save(cells, doc_id, col, results.get(str(col.id)),
-                                 ExtractionMethod.RETRIEVAL_FALLBACK, run_id, ctx_chunks)
+                                 ExtractionMethod.RETRIEVAL_FALLBACK, run_id, ctx_chunks, markdown)
                 await runs.bump(run_id, done=1)
             except (LlmUpstreamError, EmbeddingError):
                 logger.exception("Fallback extraction failed doc=%s col=%s", doc_id, col.id)
@@ -253,7 +273,7 @@ class ExtractionProcessor:
         items = out.get("columns", []) if isinstance(out, dict) else []
         return {str(item.get("columnId")): item for item in items if isinstance(item, dict)}
 
-    async def _save(self, cells, doc_id, col, result, method, run_id, candidate_chunks) -> None:
+    async def _save(self, cells, doc_id, col, result, method, run_id, candidate_chunks, markdown="") -> None:
         if not result:
             await cells.save_result(
                 doc_id, col.id, value=None, value_json=None, confidence=Confidence.LOW,
@@ -266,11 +286,14 @@ class ExtractionProcessor:
         sources: list[NewCellSource] = []
         if quote:
             match = _match_chunk(quote, candidate_chunks)
+            char_start, char_end = _locate_quote(markdown, quote)
             sources = [
                 NewCellSource(
                     chunk_id=match.id if match else None,
                     quote=quote,
                     page=match.page if match else None,
+                    char_start=char_start,
+                    char_end=char_end,
                 )
             ]
         await cells.save_result(

@@ -490,8 +490,16 @@ export const DocumentDbReviewPage: React.FC = () => {
   const currentModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
 
   // The detail view is a floating panel that overlays the grid (it doesn't reflow
-  // the grid). Width tracks the expanded state; visibility is a slide on translateX.
-  const sidebarWidthClass = isSidebarExpanded ? "w-[900px]" : "w-[400px]";
+  // the grid). Width tracks the mode/expanded state; visibility slides on translateX.
+  // The document viewer is wider so converted markdown (incl. tables) is readable.
+  const sidebarWidthClass =
+    sidebarMode === "viewer"
+      ? isSidebarExpanded
+        ? "w-[1100px]"
+        : "w-[680px]"
+      : isSidebarExpanded
+        ? "w-[900px]"
+        : "w-[400px]";
   const sidebarVisibilityClass =
     sidebarMode === "none"
       ? "translate-x-full opacity-0 pointer-events-none"
@@ -708,6 +716,7 @@ export const DocumentDbReviewPage: React.FC = () => {
               selectedCell={selectedCell}
               isTextWrapEnabled={isTextWrapEnabled}
               onDropFiles={(files) => processUploadedFiles(files)}
+              onAddDocument={addDocument}
               selectedDocIds={selectedDocIds}
               onToggleDocSelection={handleToggleDocSelection}
               onToggleAllDocSelection={handleToggleAllDocSelection}

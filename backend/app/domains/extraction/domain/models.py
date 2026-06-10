@@ -54,6 +54,9 @@ class CellSource:
     chunk_id: UUID | None
     quote: str
     page: int | None
+    # Character offsets of `quote` within the document markdown (for highlighting).
+    char_start: int | None = None
+    char_end: int | None = None
 
 
 @dataclass
