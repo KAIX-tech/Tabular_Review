@@ -1,5 +1,11 @@
 # Kalex — 도메인 모델 · 테이블 · API 설계 (v0.1)
 
+> **제품 한 줄 정의 — 법률사무소의 문서들을 업로드해 구조화된 지식베이스로 만들고(DB화),
+> Agent Chat이 그 카탈로그(DB → 컬럼 → 문서/셀/청크)를 agentic하게 탐색해 출처와 함께
+> 답변하는 시스템.** 챗(Agentic Search)이 제품의 **1차 표면**이고, 추출 그리드(기능명
+> "Tabular Review")는 Agent가 조회할 정형 데이터를 만들고 검증하는 **DB화 수단(Admin
+> 도구)** 이다. (제품명 = **Kalex**, "Tabular Review"는 그리드 기능의 이름 — §9 #18)
+>
 > 화면기획([screen-plan.md](screen-plan.md))에서 도출한 제품 개념을 **도메인 모델 →
 > 테이블 → API**로 형식화한 문서. 백엔드는 DDD(바운디드 컨텍스트 + ports/adapters)를
 > 따른다([backend/CLAUDE.md](../backend/CLAUDE.md)). 이 문서는 "무엇을(모델)"을 정의하고,
@@ -11,7 +17,10 @@
 
 ## 0. 한눈에 보기
 
-Kalex의 데이터 모델은 **하나의 행렬(matrix)** 로 수렴한다.
+Kalex의 데이터 모델은 **하나의 행렬(matrix)** 로 수렴한다. 이 행렬이 곧 **Agent Chat이
+탐색하는 카탈로그(지식베이스)** 다 — 챗 에이전트는 DB → 컬럼 → 문서/셀/청크 순으로 이
+행렬을 항해하며 답을 찾고(§2.13), Admin의 그리드 검토는 이 행렬의 **품질(DB화)을 만드는
+공정**이다.
 
 ```text
               컬럼(MFN)     컬럼(계약기간)    컬럼(준거법)    …   ← DocumentDB가 소유하는 DocumentColumn(추출 스키마)
@@ -75,7 +84,8 @@ DocumentDB의 문서(행)
                                             └────────────────┘
 ```
 
-> **`chat`은 오케스트레이터**다. 위 도식의 청크 흐름 외에도 `document_db`(DB·컬럼 read),
+> **`chat`은 제품의 1차 인터페이스이자 오케스트레이터**다(§9 #18). 위 도식의 다른 컨텍스트들은
+> 결국 `chat`이 탐색할 카탈로그를 만드는 공급 사슬이다. 청크 흐름 외에도 `document_db`(DB·컬럼 read),
 > `extraction`(셀 read)의 **읽기 포트**에 의존해 에이전트 도구를 구성한다(§2.13). 이 포트들은
 > 각 컨텍스트가 제공하고 `chat`은 구현체를 직접 import 하지 않는다.
 
@@ -769,19 +779,33 @@ create table chat_source (
    스트리밍(`astream_events`)→SSE 스텝, 트레이싱 **Langfuse LangChain 콜백**. 의존(2026.6):
    `langchain>=1.3,<2`(create_agent 포함), `langchain-openai>=1.1,<2`(ChatOpenAI→vLLM/OpenRouter),
    `langgraph`/`langchain-core` transitive, `langfuse>=4`.
+18. **제품 정체성 = Agent Chat 중심** → ✅ 제품의 **1차 표면은 챗(Agentic Search)** 이다.
+   법률사무소가 문서를 업로드해 DB화하면, 일반 유저는 챗으로 질문하고 Agent가 카탈로그를
+   탐색해 출처와 함께 답한다. 추출 그리드(기능명 "Tabular Review")는 **Agent가 조회할 정형
+   데이터를 만들고 검증하는 DB화 수단(Admin 도구)** 으로 위치시킨다 — 기능 범위는 유지하되,
+   서술·화면·로드맵의 우선순위는 챗을 기준으로 정렬한다. 제품명 = **Kalex**.
 
 ### 남은 오픈 퀘스천
 - 멀티테넌트(`org_id`) 도입 시점 — 도입하면 전 테이블에 소급 추가 필요.
+- **법률사무소 특화 모델 후보(후속 검토, v0.1 모델은 불변)**: 사건/매터(Matter) 엔티티로
+  문서·챗 세션을 사건 단위로 묶기, 문서 보안등급(대외비 등), 실무그룹별 ACL(§9 #4의 후속).
 - 검색 튜닝값(top-k / top-n / 스코어 임계값) 및 컨텍스트 예산 마진 기본값 확정.
 - 에이전트 `MAX_STEPS`·도구 결과 토큰 상한 기본값, `query_cells` 정형 필터의 표현력(서버 필터 vs LLM 추론) 범위.
 - 챗의 **정형 집계 질의**("가장 ~한 계약") 정확도 한계 — `query_cells` 결과를 LLM이 추론하는 방식의 신뢰성 확정.
 
 ---
 
-## 10. 다음 단계 제안
+## 10. 다음 단계 (구현 현황 반영, 2026-06)
 
-1. 이 문서 합의 → **백엔드 바운디드 컨텍스트 스캐폴딩**(`identity`/`document_db`/`ingestion`/`extraction`/`chat`)
-   디렉터리 + 도메인 모델(엔티티/포트) 생성.
-2. **마이그레이션**(Alembic) + pgvector 셋업.
-3. 컨텍스트별 **Pydantic 스키마** 정의 → 프론트 **Zod 미러**(API 3-file 패턴).
-4. 수직 슬라이스 1개(예: DocumentDB CRUD + DocumentColumn)부터 mock 제거하고 실제 연결.
+**구현 현황**: 백엔드는 `document_db` / `ingestion` / `extraction`(+ 인프라
+`document_conversion` / `llm` / `embedding` / `storage`) 컨텍스트와 Alembic 마이그레이션이
+구현되어 라우터까지 배선됨. `chat` 컨텍스트는 **미착수**(현재 계획 단계), `identity`는 문서상
+정의만 존재. 프론트는 `(shell)` 라우트로 챗 페이지·DocumentDB 목록/그리드가 있고 도메인별
+mock 토글(`ENV.mocks.*`)로 real API 전환 중.
+
+1. **최우선 — `chat` 컨텍스트(Agentic Search) 구현.** 제품의 1차 표면(§9 #18). 구현 계획은
+   [phase-4-chat-plan.md](phase-4-chat-plan.md) (PR-A 세션 CRUD → PR-B 에이전트+SSE → PR-C 프론트).
+2. **챗-퍼스트 유저 표면 완성** — 에이전트 스텝 라이브 표시, 청크/셀 출처 칩, 서버 세션
+   ([screen-plan.md](screen-plan.md) U-0). 그리드는 Admin 표면으로 유지.
+3. (후속) 리랭커(BGE-Reranker-V2-M3) 활성화, `query_cells` 서버측 필터/집계 고도화,
+   `identity`(인증/권한)·법률 특화 모델(매터/보안등급/ACL — §9 오픈 퀘스천).
