@@ -31,6 +31,7 @@ SSE로 보여주며 출처(청크/셀)를 연결한다.
 | D5 | **서버 영속 세션/메시지/출처/스텝** (localStorage→서버). |
 | D6 | **인증 없음** — `created_by` nullable, 유저 필터링 생략(별도 트랙). |
 | D7 | **스코프** — 전역(에이전트가 DB 선택) 또는 `scope_document_db_id`로 도구 접근 제한. |
+| D8 | **오케스트레이션 = LangGraph(커스텀 StateGraph)** — 프리빌트 react agent 대신 reason 노드가 `generate_json` 호출(포터블 유지). app/infra 레이어 한정, 도메인 순수(§9 #17). |
 
 ---
 
@@ -39,11 +40,14 @@ SSE로 보여주며 출처(청크/셀)를 연결한다.
 ```
 app/domains/chat/
 ├── domain/      models(ChatSession/Message/Source/Step, ChatRole)
-│                ports(ChatRepository, AgentToolset[read 포트 집합], errors)
-├── application/ agent.py(JSON 도구 루프) + service.py(세션 CRUD + run)
-├── infrastructure/ models(ORM) + repositories(SqlAlchemyChatRepository)
+│                ports(ChatRepository, AgentToolset[read 포트 집합], errors)  # 프레임워크 import 금지
+├── application/ agent.py(LangGraph StateGraph: reason/act/finalize) + service.py(세션 CRUD + run)
+├── infrastructure/ models(ORM) + repositories + AgentToolset 어댑터(타 컨텍스트 read 포트)
 └── interface/   schemas(DTO) + router(SSE) + dependencies
 ```
+
+> LangGraph/`langchain-core`는 application/infra 레이어에서만 import. reason 노드의 LLM 호출은
+> 우리 `TextGenerationPort.generate_json`(포터블, Langfuse 트레이싱 유지).
 
 ### 2.1 에이전트 도구 (read-only 포트; §2.13 도구 카탈로그)
 
@@ -55,14 +59,18 @@ app/domains/chat/
 → `chat` 도메인에 **`AgentToolset` 포트**(위 6개 메서드)를 정의하고, infra 어댑터가 각
 컨텍스트 read 포트(또는 서비스)를 호출해 구현. 표시 메타(documentName/db)는 조인으로 채움.
 
-### 2.2 에이전트 루프 (`ChatAgent.run(session, question) -> async generator`)
+### 2.2 에이전트 루프 (LangGraph StateGraph; §2.13)
 
-1. system 프롬프트(도구 스펙 + 규칙 + 스코프) 구성, 최근 N개 메시지 포함.
-2. `generate_json` → `{action,args}` 또는 `{answer,sources}`.
-3. `action`이면 도구 실행 → 결과를 다음 턴 컨텍스트에 주입, **`step` 이벤트 yield**. 반복(≤ MAX_STEPS).
-4. `answer`면 종료 — `answer` 이벤트(답변+출처) yield.
-5. 종료 후: user 메시지 + assistant 메시지(content/steps) + sources 영속, 제목 자동생성, `updated_at`.
-6. `sources[].kind`로 ChatSource 매핑(`chunk`→chunk_id, `cell`→cell_id). quote→청크 매핑은 추출 폴백 재사용.
+State = `{question, scope, history, tool_results, steps, answer, sources, step_count}`. 노드:
+- **reason**: 프롬프트(도구 스펙+규칙+스코프+최근 N메시지+누적 결과) → `generate_json` →
+  `{action,args}` | `{answer,sources}`.
+- **act**: toolset 디스패치(인자 Pydantic 검증) → 결과 누적 + step 기록.
+- 조건부 엣지: reason —action→ act —(step<MAX)→ reason ; reason —answer→ finalize.
+- **finalize**: `sources[].kind`로 ChatSource 매핑(`chunk`→chunk_id, `cell`→cell_id;
+  quote→청크 매핑은 추출 폴백 재사용) → user/assistant 메시지(content/steps)+sources 영속,
+  제목 자동생성, `updated_at`.
+
+스트리밍: LangGraph `astream`/`astream_events` → act마다 `step`, finalize에서 `answer`/`done` SSE.
 
 ### 2.3 main.py 배선
 `ChatAgent`(embedder/text_generation/AgentToolset 어댑터) + `ChatRepository` 주입. SSE는
