@@ -105,14 +105,12 @@ This is a structural migration from the original Vite SPA. **Working, building,
 typechecked** — but several persona patterns are intentionally deferred to keep
 the move reviewable:
 
-- `ReviewWorkspacePage.tsx` still holds all state via `useState` (ported from
-  `App.tsx`). **Next**: extract into Zustand stores under
-  `domains/*/model/` (Provider + selector pattern) and TanStack Query hooks for
-  extraction/conversion.
-- API calls use `fetch`; migrate to the Axios wrapper + **API 3-file pattern**
-  (`*.types.ts` Zod / `*.api.ts` / `*.hooks.ts`) per the persona.
-- No Zod schemas yet — domain types are hand-written interfaces in `model/types.ts`.
-  Add Zod as the single source of truth and infer types.
+- `DocumentDbReviewPage.tsx` still holds most grid state via `useState`.
+  **Next**: extract into Zustand stores under `domains/*/model/` (Provider +
+  selector pattern; `chat/model/chat-sessions.store.ts` is the first example).
+- **API 3-file pattern + Zod adopted** for document-db / document-review / chat
+  APIs (Axios + Zod schemas in `model/types.ts`); `document-processor.ts` still
+  uses raw `fetch`.
 - `shared/ui/icons.ts` is a lucide barrel; react-best-practices prefers direct
   imports — fine for now, revisit if bundle matters.
 - No tests/Husky yet; add Vitest + Playwright + a pre-commit hook (persona Init
