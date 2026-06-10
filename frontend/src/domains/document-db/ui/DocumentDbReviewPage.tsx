@@ -472,6 +472,25 @@ export const DocumentDbReviewPage: React.FC = () => {
     }));
   };
 
+  // Close the side panel (verify or viewer) and reset its selection state.
+  const closeSidebar = React.useCallback(() => {
+    setSidebarMode("none");
+    setSelectedCell(null);
+    setPreviewDocId(null);
+    setViewerDocId(null);
+    setIsSidebarExpanded(false);
+  }, []);
+
+  // Esc closes the side panel whenever it's open.
+  useEffect(() => {
+    if (sidebarMode === "none") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSidebar();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sidebarMode, closeSidebar]);
+
   const getSidebarData = () => {
     if (selectedCell) {
       return {
@@ -755,11 +774,7 @@ export const DocumentDbReviewPage: React.FC = () => {
                 cell={sidebarData.cell}
                 document={sidebarData.document}
                 column={sidebarData.column}
-                onClose={() => {
-                  setSidebarMode("none");
-                  setSelectedCell(null);
-                  setPreviewDocId(null);
-                }}
+                onClose={closeSidebar}
                 onVerify={handleVerifyCell}
                 isExpanded={isSidebarExpanded}
                 onExpand={setIsSidebarExpanded}
@@ -774,10 +789,7 @@ export const DocumentDbReviewPage: React.FC = () => {
                     documentId={doc.id}
                     name={doc.name}
                     status={doc.status}
-                    onClose={() => {
-                      setSidebarMode("none");
-                      setViewerDocId(null);
-                    }}
+                    onClose={closeSidebar}
                   />
                 ) : null;
               })()}
