@@ -1,7 +1,12 @@
 # Backend — FastAPI + DDD
 
-FastAPI service with two responsibilities today: convert documents to Markdown
-(Docling) and proxy chat completions to an on-prem vLLM server. Structured with
+FastAPI backend for **Kalex** — a legal-document knowledge base whose primary
+surface is an **Agent Chat** (agentic search over the document catalog). The
+backend ingests documents (Docling → Markdown → chunks/embeddings in
+Postgres+pgvector), manages document DBs and extraction columns, runs LLM
+extraction into the verified grid, and proxies the on-prem vLLM. The **`chat`
+bounded context (Agentic Search) is the current top priority** — plan in
+[../docs/phase-4-chat-plan.md](../docs/phase-4-chat-plan.md). Structured with
 **Domain-Driven Design + ports & adapters (hexagonal)** so business logic stays
 independent of FastAPI, Docling, and httpx.
 
@@ -53,16 +58,22 @@ interface ──▶ application ──▶ domain ◀── infrastructure
   exposes them through `interface/dependencies.py`. This keeps services testable
   (`app.dependency_overrides`) and adapters swappable.
 
-## Bounded contexts
+## Bounded contexts (current)
 
-| Context | Endpoint | Port | Adapter |
-|---|---|---|---|
-| `document_conversion` | `POST /convert` | `DocumentConverter` | `DoclingDocumentConverter` (MPS/CPU, Tesseract OCR, UTF-8-decode fallback) |
-| `llm` | `POST /llm/chat/completions` | `LlmClient` | `VllmClient` (httpx; bearer auth only when key ≠ `EMPTY`) |
+| Context | Responsibility | HTTP surface |
+|---|---|---|
+| `document_db` | DocumentDB + extraction-schema columns | `/document-dbs…`, `/columns…` |
+| `ingestion` | Upload → convert → chunk → embed; document content/file | `/document-dbs/{id}/documents`, `/documents…` |
+| `extraction` | Cell extraction runs + review | `/runs…`, `/cells…`, `/document-dbs/{id}/cells` |
+| `chat` *(next — top priority)* | Agentic Search sessions/messages + SSE | `/chat/sessions…` (planned, §6.5) |
+| `document_conversion` *(infra)* | Docling PDF/DOCX → Markdown (MPS/CPU, Tesseract OCR, UTF-8-decode fallback) | `POST /convert` |
+| `llm` *(infra)* | on-prem vLLM / OpenRouter proxy (bearer auth only when key ≠ `EMPTY`) | `POST /llm/chat/completions` |
+| `embedding` / `storage` *(infra)* | BGE-M3 embeddings (HF TEI), object storage | — (ports only) |
 
-Behavior preserved from the original `server/main.py`: OCR eng+kor, retry without
-OCR on UTF-8 decode errors, pypdfium2 PDF backend, optional HF TLS-verify bypass
-(configured before the converter is built), default-model injection on proxy.
+Conversion behavior preserved from the original `server/main.py`: OCR eng+kor,
+retry without OCR on UTF-8 decode errors, pypdfium2 PDF backend, optional HF
+TLS-verify bypass (configured before the converter is built), default-model
+injection on proxy.
 
 ## Adding a new bounded context
 
@@ -119,5 +130,6 @@ and `main.py` need Docling).
 - No tests yet — add `tests/<context>/` using fake adapters against the ports
   (the ports exist precisely to make this trivial; see the wiring smoke test
   approach used during the migration).
-- Future contexts implied by the product plan: `workspace`, `document_storage`,
-  `extraction`, `chat`, `search` (RAG). Each follows the same 4-layer shape.
+- Remaining contexts: **`chat` (Agentic Search) — top priority**
+  (`../docs/phase-4-chat-plan.md`), then `identity` (auth/roles). Each follows
+  the same 4-layer shape.
