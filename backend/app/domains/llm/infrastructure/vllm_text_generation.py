@@ -1,10 +1,11 @@
 """On-prem structured-generation adapter (vLLM / GLM, OpenAI-compatible).
 
 Implements TextGenerationPort by calling the vLLM chat-completions endpoint and
-parsing a JSON object from the response. Mirrors GeminiLlm: temperature 0, retry
-with backoff on transient upstream conditions, and optional Langfuse tracing.
+parsing a JSON object from the response: temperature 0, retry with backoff on
+transient upstream conditions, and optional Langfuse tracing.
 
-Used when AI_PROVIDER=onprem. Reuses VllmClient for transport/auth.
+Used for both LLM_PROVIDER=onprem (vLLM/GLM) and LLM_PROVIDER=openrouter (dev
+GLM) — both OpenAI-compatible. Reuses VllmClient for transport/auth.
 """
 
 from __future__ import annotations

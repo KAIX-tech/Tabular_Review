@@ -15,8 +15,7 @@ dependencies = [
     "asyncpg",
     "alembic",
     "pgvector",
-    # Ingestion: Gemini SDK (dev embedding/generation), MinIO/S3 object storage.
-    "google-genai",
+    # Object storage for original uploaded files.
     "minio",
     # Observability: LLM call tracing.
     "langfuse",

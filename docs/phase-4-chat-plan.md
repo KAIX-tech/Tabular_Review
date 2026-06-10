@@ -25,13 +25,13 @@ SSE로 보여주며 출처(청크/셀)를 연결한다.
 | # | 결정 |
 |---|---|
 | D1 | **Agentic Search** — 에이전트가 도구로 카탈로그를 탐색(§2.13). 청크 검색은 도구 중 하나. |
-| D2 | **모델 native tool-calling** — LangChain chat model(`langchain-openai`→vLLM/GLM, `langchain-google-genai`→Gemini)에 `bind_tools`. GLM이 tool-calling 구성됨(§9 #14). 챗만 이 경로, 추출은 `generate_json` 유지. |
+| D2 | **모델 native tool-calling** — LangChain `ChatOpenAI`(`langchain-openai`→vLLM/GLM(prod)·OpenRouter GLM(dev))의 네이티브 tool-calling(`create_agent`가 도구 바인딩). GLM이 tool-calling 구성됨(§9 #14). 챗만 이 경로, 추출은 `generate_json` 유지. |
 | D3 | **출처 = 청크 + 셀** — ChatSource `chunk_id`(비정형) 또는 `cell_id`(정형). |
 | D4 | **SSE 라이브 스트림** — `step`→`answer`→`done`. 스텝은 `ChatMessage.steps`(jsonb)에 저장. |
 | D5 | **서버 영속 세션/메시지/출처/스텝** (localStorage→서버). |
 | D6 | **인증 없음** — `created_by` nullable, 유저 필터링 생략(별도 트랙). |
 | D7 | **스코프** — 전역(에이전트가 DB 선택) 또는 `scope_document_db_id`로 도구 접근 제한. |
-| D8 | **오케스트레이션 = LangGraph + native tool-calling** — 프리빌트(`create_react_agent`) 또는 model+`ToolNode`+`tools_condition`. app/infra 레이어 한정, 도메인 순수(§9 #17). 트레이싱 = Langfuse LangChain 콜백. |
+| D8 | **오케스트레이션 = LangChain v1 `langchain.agents.create_agent`**(LangGraph 런타임 위 ReAct) + native tool-calling. 구버전 `langgraph.prebuilt`(`create_react_agent`/`ToolNode`/`tools_condition`)는 1.0에서 deprecated → `langchain.agents`로 이동. app/infra 레이어 한정, 도메인 순수(§9 #17). 트레이싱 = Langfuse LangChain 콜백. |
 
 ---
 
@@ -41,14 +41,16 @@ SSE로 보여주며 출처(청크/셀)를 연결한다.
 app/domains/chat/
 ├── domain/      models(ChatSession/Message/Source/Step, ChatRole)
 │                ports(ChatRepository, AgentToolset[read 포트 집합], errors)  # 프레임워크 import 금지
-├── application/ agent.py(LangGraph StateGraph: reason/act/finalize) + service.py(세션 CRUD + run)
+├── application/ agent.py(create_agent 구성 + run/스트림 + 출처 finalize) + service.py(세션 CRUD + run)
 ├── infrastructure/ models(ORM) + repositories + AgentToolset 어댑터(타 컨텍스트 read 포트)
 └── interface/   schemas(DTO) + router(SSE) + dependencies
 ```
 
-> LangGraph/LangChain(`langgraph`,`langchain-core`,`langchain-openai`,`langchain-google-genai`)은
-> application/infra 레이어에서만 import. 챗 LLM은 **LangChain chat model + native tool-calling**;
-> 추출은 기존 `generate_json` 유지. 트레이싱 = Langfuse LangChain 콜백.
+> LangChain/LangGraph는 application/infra 레이어에서만 import. 의존(2026.6):
+> `langchain>=1.3,<2`(umbrella; `langchain.agents.create_agent` 포함),
+> `langchain-openai>=1.1,<2`(ChatOpenAI→vLLM/OpenRouter), `langgraph`/`langchain-core`는 transitive,
+> `langfuse>=4`. 챗 LLM은 **LangChain ChatOpenAI + native tool-calling**; 추출은 기존
+> `generate_json` 유지. 트레이싱 = Langfuse LangChain 콜백.
 
 ### 2.1 에이전트 도구 (read-only 포트; §2.13 도구 카탈로그)
 
@@ -60,23 +62,24 @@ app/domains/chat/
 → `chat` 도메인에 **`AgentToolset` 포트**(위 6개 메서드)를 정의하고, infra 어댑터가 각
 컨텍스트 read 포트(또는 서비스)를 호출해 구현. 표시 메타(documentName/db)는 조인으로 채움.
 
-### 2.2 에이전트 루프 (LangGraph + native tool-calling; §2.13)
+### 2.2 에이전트 루프 (`langchain.agents.create_agent`; §2.13)
 
-LangChain chat model에 도구를 `bind_tools` → LangGraph 그래프:
-- **model 노드**: 시스템(규칙+스코프) + 최근 N메시지 → 모델이 **tool_calls** 또는 최종 답변.
-- **ToolNode**: 요청된 도구를 toolset으로 실행(인자 검증) → 결과를 메시지로 주입 + step 기록.
-- `tools_condition`: tool_calls 있으면 ToolNode→model 반복(≤MAX_STEPS), 없으면 finalize.
-- **finalize**: 사용된 도구 결과의 `chunk_id`/`cell_id`로 ChatSource **정확 매핑**(fuzzy 불필요) →
-  user/assistant 메시지(content/steps)+sources 영속, 제목 자동생성, `updated_at`.
+LangChain chat model(provider 분기) + 6개 도구 + system_prompt(규칙+스코프)로 **`create_agent`**
+한 번 생성 → LangGraph 런타임 위 ReAct 루프가 도구 바인딩·반복·스트리밍을 제공:
+- 모델이 **tool_calls** 내면 toolset이 실행(인자 검증) → `ToolMessage`로 주입 + step 기록, 없으면 종료.
+- **상한**: `recursion_limit`(=`MAX_STEPS` 환산)로 무한 루프 방지.
+- **finalize**(실행 후): 최종 state의 `ToolMessage`들에서 `chunk_id`/`cell_id`를 추출해 ChatSource
+  **정확 매핑**(fuzzy 불필요) → user/assistant 메시지(content/steps)+sources 영속, 제목 자동생성, `updated_at`.
+- 시스템 프롬프트/스코프 주입·커스텀 종료가 더 필요하면 **v1 middleware**, 그래도 부족하면 커스텀 `StateGraph`.
 
-스트리밍: LangGraph `astream_events` → tool 호출마다 `step`, 최종 `answer`/`done` SSE.
-모델 어댑터: `langchain-openai`(vLLM/GLM), `langchain-google-genai`(Gemini). Langfuse LangChain 콜백.
+스트리밍: `agent.astream_events(...)` → tool 호출마다 `step`, 최종 `answer`/`done` SSE.
+모델: `langchain-openai`의 `ChatOpenAI`(vLLM/GLM(prod)·OpenRouter GLM(dev)). Langfuse LangChain 콜백.
 
 ### 2.3 main.py 배선
 `ChatAgent`(LangChain chat model[provider 분기] + AgentToolset 어댑터 + Langfuse 콜백) +
-`ChatRepository` 주입. chat model은 `AI_PROVIDER`로 분기(onprem=ChatOpenAI→vLLM, gemini=
-ChatGoogleGenerativeAI). SSE는 FastAPI `StreamingResponse`(text/event-stream). 백그라운드 태스크
-불필요(요청-수명 스트림).
+`ChatRepository` 주입. chat model은 **`LLM_PROVIDER`**(onprem/openrouter)에 따라 `ChatOpenAI`로
+구성(base_url/api_key/model = 백엔드 `_openai_llm_target`와 동일 소스). SSE는 FastAPI
+`StreamingResponse`(text/event-stream). 백그라운드 태스크 불필요(요청-수명 스트림).
 
 ---
 
@@ -104,8 +107,8 @@ ChatGoogleGenerativeAI). SSE는 FastAPI `StreamingResponse`(text/event-stream). 
 
 - **PR-A 백엔드 컨텍스트 + 세션 CRUD**(에이전트 제외): 엔티티/ORM/repo/마이그레이션/CRUD 라우터.
   → LLM 없이 API 검증 가능.
-- **PR-B 에이전트 + SSE**: `AgentToolset` 어댑터(6 도구, LangChain `bind_tools`) + LangGraph 그래프
-  + SSE 메시지 엔드포인트. → 도구 단위 테스트 + 온프렘 E2E(§6).
+- **PR-B 에이전트 + SSE**: `AgentToolset` 어댑터(6 도구) + `langchain.agents.create_agent` 구성
+  + SSE 메시지 엔드포인트(`astream_events`). → 도구 단위 테스트 + 온프렘 E2E(§6).
 - **PR-C 프론트 통합**: API 3-file + SSE 소비 + 페이지 연결.
 - (후속) 리랭커 / `query_cells` 서버측 집계 고도화.
 
@@ -115,9 +118,10 @@ ChatGoogleGenerativeAI). SSE는 FastAPI `StreamingResponse`(text/event-stream). 
 
 - **LLM 없이**: 세션 CRUD(API), 각 도구 어댑터(목록/컬럼/셀/청크 검색 SQL·스코프), 출처 id 매핑,
   SSE 프레이밍 단위 테스트.
-- **LLM·임베딩 필요(이 맥은 Gemini 429)**: 에이전트 멀티스텝 E2E는 **온프렘**(TEI+vLLM, GLM
-  tool-calling)에서. 대표 질의 2종 스모크: ① 비정형("…에 대해 설명") ② 정형("…가 가장 ~한 문서?").
-  → vLLM이 tool-calling으로 떠 있는지(`--enable-auto-tool-choice` 등) 먼저 확인.
+- **LLM·임베딩 필요**: 에이전트 멀티스텝 E2E는 dev(OpenRouter GLM + TEI) 또는 온프렘(vLLM GLM +
+  TEI)에서. 대표 질의 2종 스모크: ① 비정형("…에 대해 설명") ② 정형("…가 가장 ~한 문서?").
+  → 온프렘은 vLLM이 tool-calling으로 떠 있는지(`--enable-auto-tool-choice` 등), dev는 해당 GLM이
+  OpenRouter에서 tool-calling 지원하는지 먼저 확인.
 
 ---
 

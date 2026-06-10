@@ -52,25 +52,30 @@ class Settings(BaseSettings):
             f"@{self.postgres_server}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    # --- AI provider selection (embedding + generation adapters) ---
-    # "gemini" (dev) or "onprem" (BGE-M3 + vLLM). The composition root picks adapters.
-    ai_provider: Literal["gemini", "onprem"] = Field(default="gemini", alias="AI_PROVIDER")
+    # --- LLM generation provider (OpenAI-compatible upstreams) ---
+    # Both the on-prem vLLM/GLM server and OpenRouter speak the OpenAI
+    # chat-completions wire format; only the endpoint/key/model differ.
+    #   onprem     = vLLM/GLM (prod; VLLM_* below)
+    #   openrouter = dev GLM via OpenRouter (OPENROUTER_* below)
+    # Embedding has a single adapter (HF TEI / BGE-M3), so it needs no switch.
+    llm_provider: Literal["onprem", "openrouter"] = Field(default="onprem", alias="LLM_PROVIDER")
+
+    @property
+    def active_llm_model(self) -> str:
+        """The model the active generation provider serves (for display/records)."""
+        if self.llm_provider == "openrouter":
+            return self.openrouter_model
+        return self.vllm_model
+
     embedding_dim: int = Field(default=1024, alias="EMBEDDING_DIM")
     # Active LLM context window (tokens). Extraction sends the whole document when it
     # fits this budget, else falls back to retrieval (docs/domain-design.md §2.12).
-    # Default = on-prem GLM (65k); Gemini dev has a much larger window.
+    # Default = GLM (65k).
     llm_context_tokens: int = Field(default=65000, alias="LLM_CONTEXT_TOKENS")
 
-    # --- Gemini (dev embedding/generation) ---
-    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
-    gemini_embedding_model: str = Field(
-        default="gemini-embedding-001", alias="GEMINI_EMBEDDING_MODEL"
-    )
-    gemini_llm_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_LLM_MODEL")
-
-    # --- On-prem embedding (HF Text-Embeddings-Inference; BGE-M3) ---
-    # Used when AI_PROVIDER=onprem. The TEI server hosts a single model, so only
-    # the base URL (+ optional bearer key) is needed; vectors must be `embedding_dim`.
+    # --- Embedding (HF Text-Embeddings-Inference; BGE-M3) ---
+    # Single embedding adapter. The TEI server hosts one model, so only the base
+    # URL (+ optional bearer key) is needed; vectors must be `embedding_dim`.
     embedding_base_url: str = Field(default="", alias="EMBEDDING_BASE_URL")
     embedding_api_key: str = Field(default="", alias="EMBEDDING_API_KEY")
     embedding_timeout_seconds: float = Field(default=60.0, alias="EMBEDDING_TIMEOUT_SECONDS")
@@ -108,6 +113,16 @@ class Settings(BaseSettings):
     vllm_model: str = Field(default="glm-5", alias="VLLM_MODEL")
     vllm_timeout_seconds: float = Field(default=120.0, alias="VLLM_TIMEOUT_SECONDS")
 
+    # --- OpenRouter (dev generation; LLM_PROVIDER=openrouter) ---
+    # OpenAI-compatible chat completions, so it reuses the vLLM transport/adapter
+    # (just a different base URL/key/model). Used in local dev to reach GLM via
+    # OpenRouter. No embeddings endpoint — embedding always uses HF TEI (BGE-M3).
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1", alias="OPENROUTER_BASE_URL"
+    )
+    openrouter_api_key: str = Field(default="", alias="OPENROUTER_API_KEY")
+    openrouter_model: str = Field(default="z-ai/glm-4.6", alias="OPENROUTER_MODEL")
+
     # --- Docling document conversion ---
     docling_ocr_enabled: bool = Field(default=True, alias="DOCLING_OCR_ENABLED")
     docling_ocr_force_full_page: bool = Field(default=False, alias="DOCLING_OCR_FORCE_FULL_PAGE")
@@ -139,6 +154,15 @@ class Settings(BaseSettings):
     @classmethod
     def _parse_csv_fields(cls, value: str | list[str]) -> list[str]:
         return _split_csv(value)
+
+    @field_validator("llm_provider", mode="before")
+    @classmethod
+    def _blank_llm_provider_default(cls, value: str | None) -> str | None:
+        # A blank env var (e.g. `LLM_PROVIDER=`) arrives as "" and would fail the
+        # Literal check; treat it as the default (onprem).
+        if isinstance(value, str) and not value.strip():
+            return "onprem"
+        return value
 
 
 @lru_cache

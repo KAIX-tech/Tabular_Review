@@ -40,7 +40,6 @@ from app.domains.document_db.infrastructure.repositories import (
 )
 from app.domains.document_db.interface.router import router as document_db_router
 from app.domains.embedding.domain.ports import EmbeddingPort
-from app.domains.embedding.infrastructure.gemini_embedder import GeminiEmbedder
 from app.domains.embedding.infrastructure.tei_embedder import TeiEmbedder
 from app.domains.extraction.application.processor import ExtractionProcessor
 from app.domains.extraction.application.service import ExtractionService
@@ -60,7 +59,6 @@ from app.domains.ingestion.infrastructure.repositories import (
 from app.domains.ingestion.interface.router import router as ingestion_router
 from app.domains.llm.application.service import LlmProxyService
 from app.domains.llm.domain.ports import TextGenerationPort
-from app.domains.llm.infrastructure.gemini_llm import GeminiLlm
 from app.domains.llm.infrastructure.vllm_client import VllmClient
 from app.domains.llm.infrastructure.vllm_text_generation import VllmTextGeneration
 from app.domains.llm.interface.router import router as llm_router
@@ -93,18 +91,34 @@ def _build_extraction_service(session: AsyncSession) -> ExtractionService:
 
 
 def _build_embedder(settings: Settings) -> EmbeddingPort:
-    if settings.ai_provider == "gemini":
-        return GeminiEmbedder(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_embedding_model,
-            dimension=settings.embedding_dim,
-        )
-    # onprem: BGE-M3 served via HF Text-Embeddings-Inference.
+    # Single embedding adapter: BGE-M3 served via HF Text-Embeddings-Inference.
     return TeiEmbedder(
         base_url=settings.embedding_base_url,
         api_key=settings.embedding_api_key,
         dimension=settings.embedding_dim,
         timeout_seconds=settings.embedding_timeout_seconds,
+    )
+
+
+def _openai_llm_target(settings: Settings) -> tuple[str, str, str, float]:
+    """(base_url, api_key, model, timeout) for the active OpenAI-compatible LLM.
+
+    Both the on-prem vLLM/GLM server and OpenRouter speak the OpenAI
+    chat-completions wire format, so they share one transport (VllmClient); only
+    the endpoint/key/model differ.
+    """
+    if settings.llm_provider == "openrouter":
+        return (
+            settings.openrouter_base_url,
+            settings.openrouter_api_key,
+            settings.openrouter_model,
+            settings.vllm_timeout_seconds,
+        )
+    return (
+        settings.vllm_base_url,
+        settings.vllm_api_key,
+        settings.vllm_model,
+        settings.vllm_timeout_seconds,
     )
 
 
@@ -131,21 +145,13 @@ def _build_langfuse(settings: Settings) -> "Langfuse | None":
 def _build_text_generation(
     settings: Settings, tracer: "Langfuse | None" = None
 ) -> TextGenerationPort:
-    if settings.ai_provider == "gemini":
-        return GeminiLlm(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_llm_model,
-            tracer=tracer,
-        )
-    # onprem: GLM via vLLM (OpenAI-compatible), reusing the VllmClient transport.
-    vllm_client = VllmClient(
-        base_url=settings.vllm_base_url,
-        api_key=settings.vllm_api_key,
-        timeout_seconds=settings.vllm_timeout_seconds,
-    )
+    # onprem (vLLM/GLM) or openrouter (dev GLM): both OpenAI-compatible, so reuse
+    # the VllmClient transport pointed at the active target.
+    base_url, api_key, model, timeout = _openai_llm_target(settings)
+    client = VllmClient(base_url=base_url, api_key=api_key, timeout_seconds=timeout)
     return VllmTextGeneration(
-        client=vllm_client,
-        model=settings.vllm_model,
+        client=client,
+        model=model,
         json_object_mode=settings.vllm_json_object_mode,
         tracer=tracer,
     )
@@ -182,12 +188,11 @@ def _build_document_conversion_service(settings: Settings) -> DocumentConversion
 
 
 def _build_llm_proxy_service(settings: Settings) -> LlmProxyService:
-    client = VllmClient(
-        base_url=settings.vllm_base_url,
-        api_key=settings.vllm_api_key,
-        timeout_seconds=settings.vllm_timeout_seconds,
-    )
-    return LlmProxyService(client, default_model=settings.vllm_model)
+    # The /llm/chat/completions passthrough targets the active OpenAI-compatible
+    # LLM (on-prem vLLM or, in dev, OpenRouter GLM).
+    base_url, api_key, model, timeout = _openai_llm_target(settings)
+    client = VllmClient(base_url=base_url, api_key=api_key, timeout_seconds=timeout)
+    return LlmProxyService(client, default_model=model)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
