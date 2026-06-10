@@ -3,6 +3,7 @@
 import type React from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Download, FileText, Loader2, X } from "@/shared/ui/icons";
 import { documentFileUrl } from "../api/documents.api";
 import { useDocumentContent } from "../api/documents.hooks";
@@ -17,11 +18,16 @@ const MD_COMPONENTS: Components = {
   ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1 text-[15px] text-ink-2">{children}</ul>,
   ol: ({ children }) => <ol className="list-decimal pl-5 my-2 space-y-1 text-[15px] text-ink-2">{children}</ol>,
   strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+  // Wrap in a horizontal scroller so wide tables don't overflow the panel.
   table: ({ children }) => (
-    <table className="my-3 w-full text-sm border-collapse">{children}</table>
+    <div className="my-3 overflow-x-auto">
+      <table className="w-full text-sm border-collapse">{children}</table>
+    </div>
   ),
-  th: ({ children }) => <th className="border border-border px-2 py-1 bg-surface-muted text-left">{children}</th>,
-  td: ({ children }) => <td className="border border-border px-2 py-1">{children}</td>,
+  th: ({ children }) => (
+    <th className="border border-border px-2 py-1 bg-surface-muted text-left align-top">{children}</th>
+  ),
+  td: ({ children }) => <td className="border border-border px-2 py-1 align-top">{children}</td>,
 };
 
 interface DocumentViewerProps {
@@ -79,7 +85,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
         ) : markdown ? (
           <article className="max-w-none break-words">
-            <ReactMarkdown components={MD_COMPONENTS}>{markdown}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+              {markdown}
+            </ReactMarkdown>
           </article>
         ) : (
           <p className="text-sm text-ink-3">표시할 내용이 없습니다.</p>

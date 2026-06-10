@@ -55,10 +55,15 @@ class CellSourceResponse(CamelModel):
     chunk_id: UUID | None
     quote: str
     page: int | None
+    char_start: int | None
+    char_end: int | None
 
     @classmethod
     def from_domain(cls, src: CellSource) -> "CellSourceResponse":
-        return cls(chunk_id=src.chunk_id, quote=src.quote, page=src.page)
+        return cls(
+            chunk_id=src.chunk_id, quote=src.quote, page=src.page,
+            char_start=src.char_start, char_end=src.char_end,
+        )
 
 
 class CellResponse(CamelModel):

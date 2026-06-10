@@ -94,6 +94,9 @@ export const cellSourceSchema = z.object({
   chunkId: z.string().nullish(),
   quote: z.string(),
   page: z.number().int().nullish(),
+  // Character offsets of the quote within the document markdown (highlighting).
+  charStart: z.number().int().nullish(),
+  charEnd: z.number().int().nullish(),
 });
 
 export const cellSchema = z.object({

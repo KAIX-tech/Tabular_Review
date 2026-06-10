@@ -18,6 +18,8 @@ interface DataGridProps {
   selectedCell: { docId: string; colId: string } | null;
   onUpload?: (files: DocumentFile[]) => void;
   onDropFiles?: (files: File[]) => void;
+  // Opens the file picker (same as the "문서 추가" button); shown as a + on empty cells.
+  onAddDocument?: () => void;
   // Selection props for re-run feature
   selectedDocIds?: Set<string>;
   onToggleDocSelection?: (docId: string) => void;
@@ -55,6 +57,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
   onRemoveDoc,
   selectedCell,
   onDropFiles,
+  onAddDocument,
   selectedDocIds = new Set(),
   onToggleDocSelection,
   onToggleAllDocSelection,
@@ -328,14 +331,39 @@ export const DataGrid: React.FC<DataGridProps> = ({
               <td className="border-b border-slate-200"></td>
             </tr>
           )})}
-           {/* Empty State / Ghost Rows to keep grid structure */}
+           {/* Empty State / Ghost Rows. Hovering an empty cell reveals a + that
+               adds a document (same as the "문서 추가" button). */}
            {Array.from({ length: Math.max(5, 20 - documents.length) }).map((_, i) => (
             <tr key={`empty-${i}`}>
-                <td className="border-b border-r border-slate-200 bg-white h-14 text-[10px] text-slate-300 text-center font-mono pt-4 sticky left-0 z-10">
-                    {/* Number removed as requested for ghost rows */}
+                <td className="border-b border-r border-slate-200 bg-white h-14 sticky left-0 z-10"></td>
+                <td className="border-b border-r border-slate-200 bg-white sticky left-12 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] p-0">
+                    {onAddDocument && (
+                        <button
+                            type="button"
+                            onClick={onAddDocument}
+                            title="문서 추가"
+                            aria-label="문서 추가"
+                            className="w-full h-14 flex items-center justify-center text-slate-300 opacity-0 hover:opacity-100 hover:text-indigo-600 hover:bg-indigo-50/40 focus-visible:opacity-100 focus-visible:text-indigo-600 focus-visible:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 transition-all"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    )}
                 </td>
-                <td className="border-b border-r border-slate-200 bg-white sticky left-12 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]"></td>
-                {columns.map(c => <td key={c.id} className="border-b border-r border-slate-200 bg-slate-50/5" style={{ width: c.width || 240 }}></td>)}
+                {columns.map(c => (
+                    <td key={c.id} className="border-b border-r border-slate-200 bg-slate-50/5 p-0" style={{ width: c.width || 240 }}>
+                        {onAddDocument && (
+                            <button
+                                type="button"
+                                onClick={onAddDocument}
+                                title="문서 추가"
+                                aria-label="문서 추가"
+                                className="w-full h-14 flex items-center justify-center text-slate-300 opacity-0 hover:opacity-100 hover:text-indigo-600 hover:bg-indigo-50/40 focus-visible:opacity-100 focus-visible:text-indigo-600 focus-visible:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 transition-all"
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        )}
+                    </td>
+                ))}
                 <td className="border-b border-slate-200"></td>
                 <td className="border-b border-slate-200"></td>
             </tr>

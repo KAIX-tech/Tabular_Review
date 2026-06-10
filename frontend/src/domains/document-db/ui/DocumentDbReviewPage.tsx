@@ -472,6 +472,25 @@ export const DocumentDbReviewPage: React.FC = () => {
     }));
   };
 
+  // Close the side panel (verify or viewer) and reset its selection state.
+  const closeSidebar = React.useCallback(() => {
+    setSidebarMode("none");
+    setSelectedCell(null);
+    setPreviewDocId(null);
+    setViewerDocId(null);
+    setIsSidebarExpanded(false);
+  }, []);
+
+  // Esc closes the side panel whenever it's open.
+  useEffect(() => {
+    if (sidebarMode === "none") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSidebar();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sidebarMode, closeSidebar]);
+
   const getSidebarData = () => {
     if (selectedCell) {
       return {
@@ -490,14 +509,26 @@ export const DocumentDbReviewPage: React.FC = () => {
   const currentModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
 
   // The detail view is a floating panel that overlays the grid (it doesn't reflow
-  // the grid). Width tracks the expanded state; visibility is a slide on translateX.
-  const sidebarWidthClass = isSidebarExpanded ? "w-[900px]" : "w-[400px]";
+  // the grid). Width tracks the mode/expanded state; visibility slides on translateX.
+  // The document viewer is wider so converted markdown (incl. tables) is readable.
+  const sidebarWidthClass =
+    sidebarMode === "viewer"
+      ? isSidebarExpanded
+        ? "w-[1100px]"
+        : "w-[680px]"
+      : isSidebarExpanded
+        ? "w-[900px]"
+        : "w-[400px]";
   const sidebarVisibilityClass =
     sidebarMode === "none"
       ? "translate-x-full opacity-0 pointer-events-none"
       : "translate-x-0 opacity-100";
 
-  const addDocument = () => !isConverting && fileInputRef.current?.click();
+  const addDocument = () => {
+    // Match the header "문서 추가" button's disabled state (also guards uploads in flight).
+    if (isConverting || uploadMutation.isPending) return;
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="flex flex-col h-full bg-canvas text-ink">
@@ -708,6 +739,7 @@ export const DocumentDbReviewPage: React.FC = () => {
               selectedCell={selectedCell}
               isTextWrapEnabled={isTextWrapEnabled}
               onDropFiles={(files) => processUploadedFiles(files)}
+              onAddDocument={addDocument}
               selectedDocIds={selectedDocIds}
               onToggleDocSelection={handleToggleDocSelection}
               onToggleAllDocSelection={handleToggleAllDocSelection}
@@ -742,11 +774,7 @@ export const DocumentDbReviewPage: React.FC = () => {
                 cell={sidebarData.cell}
                 document={sidebarData.document}
                 column={sidebarData.column}
-                onClose={() => {
-                  setSidebarMode("none");
-                  setSelectedCell(null);
-                  setPreviewDocId(null);
-                }}
+                onClose={closeSidebar}
                 onVerify={handleVerifyCell}
                 isExpanded={isSidebarExpanded}
                 onExpand={setIsSidebarExpanded}
@@ -761,10 +789,7 @@ export const DocumentDbReviewPage: React.FC = () => {
                     documentId={doc.id}
                     name={doc.name}
                     status={doc.status}
-                    onClose={() => {
-                      setSidebarMode("none");
-                      setViewerDocId(null);
-                    }}
+                    onClose={closeSidebar}
                   />
                 ) : null;
               })()}
