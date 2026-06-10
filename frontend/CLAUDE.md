@@ -11,8 +11,8 @@ before adding features.
 > **Source of truth:** domain model + API contract live in
 > [../docs/domain-design.md](../docs/domain-design.md). Frontend Zod schemas mirror
 > that doc (entities → `z.infer` types, endpoints → API 3-file pattern). When the
-> contract changes, update the doc and the Zod mirror together. UI/UX spec:
-> `../docs/screen-plan.md`.
+> contract changes, update the doc and the Zod mirror together. Chat-UI criteria:
+> `../docs/phase-4-chat-plan.md` §4.1.
 
 ## Tech stack
 
@@ -115,7 +115,7 @@ the move reviewable:
   imports — fine for now, revisit if bundle matters.
 - No tests/Husky yet; add Vitest + Playwright + a pre-commit hook (persona Init
   checklist) when feature work resumes.
-- Product screens (see `../docs/screen-plan.md`): workspace switcher (left
-  rail), workspace list, and the chat-first user surface are built. **Next
-  (top priority): chat mock → real** — SSE step timeline, chunk/cell source
-  chips, server-persisted sessions (`../docs/phase-4-chat-plan.md` PR-C).
+- Product screens: workspace switcher (left rail), workspace list, and the
+  chat-first user surface are built. **Next (top priority): chat mock → real**
+  — SSE step timeline, chunk/cell source chips, server-persisted sessions
+  (`../docs/phase-4-chat-plan.md` §4.1 + PR-C).

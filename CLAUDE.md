@@ -21,7 +21,9 @@ for the domain model, database tables, and API contract (entities, bounded
 contexts, ERD, Postgres+pgvector DDL, REST endpoints, retrieval pipeline). When
 implementing or changing anything in that space, **align to that document — and
 when reality diverges, update the document in the same change.** Treat it as a
-living spec, not a snapshot. (UI/UX spec lives in `docs/screen-plan.md`.)
+living spec, not a snapshot. (The standalone UI/UX spec `docs/screen-plan.md`
+was retired once the screens shipped; the remaining chat-UI criteria live in
+`docs/phase-4-chat-plan.md` §4.1.)
 
 ## Layout
 
@@ -29,7 +31,7 @@ living spec, not a snapshot. (UI/UX spec lives in `docs/screen-plan.md`.)
 .
 ├── frontend/      Next.js App Router + Feature-Sliced Design (FSD). See frontend/CLAUDE.md
 ├── backend/       FastAPI + DDD (bounded contexts, ports & adapters). See backend/CLAUDE.md
-├── docs/          domain-design.md = 도메인/테이블/API 진실원천; screen-plan.md = UI/UX 화면기획; phase-4-chat-plan.md = 챗(Agentic Search) 구현 계획
+├── docs/          domain-design.md = 도메인/테이블/API 진실원천; phase-4-chat-plan.md = 챗(Agentic Search) 구현 계획 + 챗 UI 기준
 ├── docker-compose.yml   Runs both services
 ├── .env.example         Compose-level env (copy to .env)
 └── start-backend.sh     Local backend dev (venv + uvicorn, MPS on macOS)
@@ -88,8 +90,8 @@ Ports: backend `18001:8000`, frontend `13001:3000` (compose).
 
 ## Product direction
 
-See [docs/screen-plan.md](docs/screen-plan.md): the **chat-first user surface**
-(U-0, `frontend/src/domains/chat/ui/ChatMainPage.tsx`) is the product's primary
+The **chat-first user surface**
+(`frontend/src/domains/chat/ui/ChatMainPage.tsx`) is the product's primary
 surface; the admin grid (document insert + column management,
 `frontend/src/domains/document-db/ui/DocumentDbReviewPage.tsx`) is the
 DB-building tool. Backend contexts `document_db` / `ingestion` / `extraction`

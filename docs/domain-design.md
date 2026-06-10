@@ -6,8 +6,9 @@
 > "Tabular Review")는 Agent가 조회할 정형 데이터를 만들고 검증하는 **DB화 수단(Admin
 > 도구)** 이다. (제품명 = **Kalex**, "Tabular Review"는 그리드 기능의 이름 — §9 #18)
 >
-> 화면기획([screen-plan.md](screen-plan.md))에서 도출한 제품 개념을 **도메인 모델 →
-> 테이블 → API**로 형식화한 문서. 백엔드는 DDD(바운디드 컨텍스트 + ports/adapters)를
+> 화면기획(구 screen-plan.md — 화면 구현 완료로 폐기, 잔여 챗 UI 기준은
+> [phase-4-chat-plan.md](phase-4-chat-plan.md) §4.1로 이관)에서 도출한 제품 개념을
+> **도메인 모델 → 테이블 → API**로 형식화한 문서. 백엔드는 DDD(바운디드 컨텍스트 + ports/adapters)를
 > 따른다([backend/CLAUDE.md](../backend/CLAUDE.md)). 이 문서는 "무엇을(모델)"을 정의하고,
 > 구현 시 각 컨텍스트의 `domain` 레이어가 이 정의를 단일 진실원본으로 삼는다.
 >
@@ -437,7 +438,7 @@ review_status:      unreviewed ──▶ verified
                               ├──▶ edited     (사람이 값 수정)
                               └──▶ rejected   (근거 불충분)
 ```
-- 두 축은 독립: `done` + `unreviewed`가 기본 상태. 사람이 검증 사이드바(A-4)에서 review_status 변경.
+- 두 축은 독립: `done` + `unreviewed`가 기본 상태. 사람이 검증 사이드바(`VerificationSidebar`)에서 review_status 변경.
 - 재추출 시 review_status 처리는 §9 결정 필요(수정값 보존 vs 초기화).
 
 ---
@@ -806,6 +807,7 @@ mock 토글(`ENV.mocks.*`)로 real API 전환 중.
 1. **최우선 — `chat` 컨텍스트(Agentic Search) 구현.** 제품의 1차 표면(§9 #18). 구현 계획은
    [phase-4-chat-plan.md](phase-4-chat-plan.md) (PR-A 세션 CRUD → PR-B 에이전트+SSE → PR-C 프론트).
 2. **챗-퍼스트 유저 표면 완성** — 에이전트 스텝 라이브 표시, 청크/셀 출처 칩, 서버 세션
-   ([screen-plan.md](screen-plan.md) U-0). 그리드는 Admin 표면으로 유지.
+   (화면 기준: [phase-4-chat-plan.md](phase-4-chat-plan.md) §4.1). 그리드는 Admin 표면으로 유지.
 3. (후속) 리랭커(BGE-Reranker-V2-M3) 활성화, `query_cells` 서버측 필터/집계 고도화,
+   읽기전용 그리드 의미검색·폴백 셀 "부분 컨텍스트" 배지(§2.12),
    `identity`(인증/권한)·법률 특화 모델(매터/보안등급/ACL — §9 오픈 퀘스천).

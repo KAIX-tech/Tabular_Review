@@ -33,7 +33,7 @@ https://github.com/user-attachments/assets/b63026d8-3df6-48a8-bb4b-eb8f24d3a1ca
 .
 ├── frontend/   Next.js App Router + FSD            → see frontend/CLAUDE.md
 ├── backend/    FastAPI + DDD (bounded contexts)    → see backend/CLAUDE.md
-├── docs/       Product/design docs (domain-design.md = source of truth, screen-plan.md, phase-4-chat-plan.md)
+├── docs/       Product/design docs (domain-design.md = source of truth, phase-4-chat-plan.md)
 ├── docker-compose.yml
 └── .env.example
 ```
