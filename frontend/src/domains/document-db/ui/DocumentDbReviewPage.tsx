@@ -505,7 +505,11 @@ export const DocumentDbReviewPage: React.FC = () => {
       ? "translate-x-full opacity-0 pointer-events-none"
       : "translate-x-0 opacity-100";
 
-  const addDocument = () => !isConverting && fileInputRef.current?.click();
+  const addDocument = () => {
+    // Match the header "문서 추가" button's disabled state (also guards uploads in flight).
+    if (isConverting || uploadMutation.isPending) return;
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="flex flex-col h-full bg-canvas text-ink">

@@ -342,7 +342,8 @@ export const DataGrid: React.FC<DataGridProps> = ({
                             type="button"
                             onClick={onAddDocument}
                             title="문서 추가"
-                            className="w-full h-14 flex items-center justify-center text-slate-300 opacity-0 hover:opacity-100 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all"
+                            aria-label="문서 추가"
+                            className="w-full h-14 flex items-center justify-center text-slate-300 opacity-0 hover:opacity-100 hover:text-indigo-600 hover:bg-indigo-50/40 focus-visible:opacity-100 focus-visible:text-indigo-600 focus-visible:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 transition-all"
                         >
                             <Plus className="w-4 h-4" />
                         </button>
@@ -355,7 +356,8 @@ export const DataGrid: React.FC<DataGridProps> = ({
                                 type="button"
                                 onClick={onAddDocument}
                                 title="문서 추가"
-                                className="w-full h-14 flex items-center justify-center text-slate-300 opacity-0 hover:opacity-100 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all"
+                                aria-label="문서 추가"
+                                className="w-full h-14 flex items-center justify-center text-slate-300 opacity-0 hover:opacity-100 hover:text-indigo-600 hover:bg-indigo-50/40 focus-visible:opacity-100 focus-visible:text-indigo-600 focus-visible:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 transition-all"
                             >
                                 <Plus className="w-4 h-4" />
                             </button>
