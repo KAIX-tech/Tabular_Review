@@ -1,8 +1,9 @@
 # Backend (FastAPI + Docling) for Tabular Review — uv-based.
 FROM python:3.11-slim
 
-# uv binary (pinned for reproducibility).
-COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /uvx /bin/
+# uv via pip (pinned). Avoids pulling the ghcr.io uv image, which the internal
+# network's TLS interception blocks.
+RUN pip install --no-cache-dir uv==0.9.26
 
 WORKDIR /app
 
@@ -26,9 +27,19 @@ ENV PYTHONIOENCODING=utf-8
 ENV PYTHONUNBUFFERED=1
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
 ENV HF_HUB_DISABLE_XET=1
-# Fixed in-container Docling model cache path (matches the docling-cache volume
-# mount). Docling reads this from the OS env directly (not via app config).
-ENV DOCLING_ARTIFACTS_PATH=/root/.cache/docling/models
+# NOTE: DOCLING_ARTIFACTS_PATH is intentionally NOT set. Docling treats it as an
+# OFFLINE model dir — if set but empty it errors ("must point to a folder
+# containing all models"). Left unset, Docling downloads models on first use to
+# the HF cache (/root/.cache/huggingface, persisted by the hf-cache volume).
+# For an air-gapped deploy, prefetch with scripts/download_docling_models.py and
+# set DOCLING_ARTIFACTS_PATH (in .env) to that populated directory.
+
+# Pre-create the model/cache dirs with broad write perms so the mounted volumes
+# are writable (incl. when the container runs as a non-root user) and the
+# in-container prefetch can write models.
+RUN mkdir -p /root/.cache/docling/models /root/.cache/huggingface \
+    && chmod -R 777 /root/.cache \
+    && chmod 755 /root
 
 # uv settings: use system Python, copy (not hardlink) into the layer, compile bytecode.
 ENV UV_PYTHON_DOWNLOADS=never

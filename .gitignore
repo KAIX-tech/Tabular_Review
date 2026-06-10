@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 *.env
+
+# Prefetched Docling model bundle (air-gapped deploy artifact; do not commit)
+docling-models-bundle.tar
+docling-models-bundle/

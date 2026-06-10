@@ -20,7 +20,11 @@ ENV NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=$NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB
 ENV NEXT_PUBLIC_USE_MOCKS_CHAT=$NEXT_PUBLIC_USE_MOCKS_CHAT
 ENV NEXT_PUBLIC_USE_MOCKS_REVIEW=$NEXT_PUBLIC_USE_MOCKS_REVIEW
 
-RUN npm install -g pnpm
+# Internal network intercepts npm-registry TLS with a corporate cert, so disable
+# strict-ssl for installs. (Registry fetches only; pnpm reads the same ~/.npmrc.)
+# NOTE: weakens TLS verification — acceptable here for the closed internal deploy.
+RUN npm config set strict-ssl false \
+    && npm install -g pnpm@9
 
 # Install dependencies first for layer caching.
 COPY package.json pnpm-lock.yaml ./
