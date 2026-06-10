@@ -25,13 +25,13 @@ SSE로 보여주며 출처(청크/셀)를 연결한다.
 | # | 결정 |
 |---|---|
 | D1 | **Agentic Search** — 에이전트가 도구로 카탈로그를 탐색(§2.13). 청크 검색은 도구 중 하나. |
-| D2 | **provider-portable JSON 도구 루프** — `TextGenerationPort.generate_json` 재사용. native function-calling 불필요(Gemini·온프렘 GLM 동작). |
+| D2 | **모델 native tool-calling** — LangChain chat model(`langchain-openai`→vLLM/GLM, `langchain-google-genai`→Gemini)에 `bind_tools`. GLM이 tool-calling 구성됨(§9 #14). 챗만 이 경로, 추출은 `generate_json` 유지. |
 | D3 | **출처 = 청크 + 셀** — ChatSource `chunk_id`(비정형) 또는 `cell_id`(정형). |
 | D4 | **SSE 라이브 스트림** — `step`→`answer`→`done`. 스텝은 `ChatMessage.steps`(jsonb)에 저장. |
 | D5 | **서버 영속 세션/메시지/출처/스텝** (localStorage→서버). |
 | D6 | **인증 없음** — `created_by` nullable, 유저 필터링 생략(별도 트랙). |
 | D7 | **스코프** — 전역(에이전트가 DB 선택) 또는 `scope_document_db_id`로 도구 접근 제한. |
-| D8 | **오케스트레이션 = LangGraph(커스텀 StateGraph)** — 프리빌트 react agent 대신 reason 노드가 `generate_json` 호출(포터블 유지). app/infra 레이어 한정, 도메인 순수(§9 #17). |
+| D8 | **오케스트레이션 = LangGraph + native tool-calling** — 프리빌트(`create_react_agent`) 또는 model+`ToolNode`+`tools_condition`. app/infra 레이어 한정, 도메인 순수(§9 #17). 트레이싱 = Langfuse LangChain 콜백. |
 
 ---
 
@@ -46,8 +46,9 @@ app/domains/chat/
 └── interface/   schemas(DTO) + router(SSE) + dependencies
 ```
 
-> LangGraph/`langchain-core`는 application/infra 레이어에서만 import. reason 노드의 LLM 호출은
-> 우리 `TextGenerationPort.generate_json`(포터블, Langfuse 트레이싱 유지).
+> LangGraph/LangChain(`langgraph`,`langchain-core`,`langchain-openai`,`langchain-google-genai`)은
+> application/infra 레이어에서만 import. 챗 LLM은 **LangChain chat model + native tool-calling**;
+> 추출은 기존 `generate_json` 유지. 트레이싱 = Langfuse LangChain 콜백.
 
 ### 2.1 에이전트 도구 (read-only 포트; §2.13 도구 카탈로그)
 
@@ -59,22 +60,23 @@ app/domains/chat/
 → `chat` 도메인에 **`AgentToolset` 포트**(위 6개 메서드)를 정의하고, infra 어댑터가 각
 컨텍스트 read 포트(또는 서비스)를 호출해 구현. 표시 메타(documentName/db)는 조인으로 채움.
 
-### 2.2 에이전트 루프 (LangGraph StateGraph; §2.13)
+### 2.2 에이전트 루프 (LangGraph + native tool-calling; §2.13)
 
-State = `{question, scope, history, tool_results, steps, answer, sources, step_count}`. 노드:
-- **reason**: 프롬프트(도구 스펙+규칙+스코프+최근 N메시지+누적 결과) → `generate_json` →
-  `{action,args}` | `{answer,sources}`.
-- **act**: toolset 디스패치(인자 Pydantic 검증) → 결과 누적 + step 기록.
-- 조건부 엣지: reason —action→ act —(step<MAX)→ reason ; reason —answer→ finalize.
-- **finalize**: `sources[].kind`로 ChatSource 매핑(`chunk`→chunk_id, `cell`→cell_id;
-  quote→청크 매핑은 추출 폴백 재사용) → user/assistant 메시지(content/steps)+sources 영속,
-  제목 자동생성, `updated_at`.
+LangChain chat model에 도구를 `bind_tools` → LangGraph 그래프:
+- **model 노드**: 시스템(규칙+스코프) + 최근 N메시지 → 모델이 **tool_calls** 또는 최종 답변.
+- **ToolNode**: 요청된 도구를 toolset으로 실행(인자 검증) → 결과를 메시지로 주입 + step 기록.
+- `tools_condition`: tool_calls 있으면 ToolNode→model 반복(≤MAX_STEPS), 없으면 finalize.
+- **finalize**: 사용된 도구 결과의 `chunk_id`/`cell_id`로 ChatSource **정확 매핑**(fuzzy 불필요) →
+  user/assistant 메시지(content/steps)+sources 영속, 제목 자동생성, `updated_at`.
 
-스트리밍: LangGraph `astream`/`astream_events` → act마다 `step`, finalize에서 `answer`/`done` SSE.
+스트리밍: LangGraph `astream_events` → tool 호출마다 `step`, 최종 `answer`/`done` SSE.
+모델 어댑터: `langchain-openai`(vLLM/GLM), `langchain-google-genai`(Gemini). Langfuse LangChain 콜백.
 
 ### 2.3 main.py 배선
-`ChatAgent`(embedder/text_generation/AgentToolset 어댑터) + `ChatRepository` 주입. SSE는
-FastAPI `StreamingResponse`(text/event-stream). 백그라운드 태스크 불필요(요청-수명 스트림).
+`ChatAgent`(LangChain chat model[provider 분기] + AgentToolset 어댑터 + Langfuse 콜백) +
+`ChatRepository` 주입. chat model은 `AI_PROVIDER`로 분기(onprem=ChatOpenAI→vLLM, gemini=
+ChatGoogleGenerativeAI). SSE는 FastAPI `StreamingResponse`(text/event-stream). 백그라운드 태스크
+불필요(요청-수명 스트림).
 
 ---
 
@@ -102,32 +104,34 @@ FastAPI `StreamingResponse`(text/event-stream). 백그라운드 태스크 불필
 
 - **PR-A 백엔드 컨텍스트 + 세션 CRUD**(에이전트 제외): 엔티티/ORM/repo/마이그레이션/CRUD 라우터.
   → LLM 없이 API 검증 가능.
-- **PR-B 에이전트 + SSE**: `AgentToolset` 어댑터(6 도구) + `ChatAgent` JSON 루프 + SSE 메시지 엔드포인트.
-  → 도구 단위 테스트 + 온프렘 E2E(§6).
+- **PR-B 에이전트 + SSE**: `AgentToolset` 어댑터(6 도구, LangChain `bind_tools`) + LangGraph 그래프
+  + SSE 메시지 엔드포인트. → 도구 단위 테스트 + 온프렘 E2E(§6).
 - **PR-C 프론트 통합**: API 3-file + SSE 소비 + 페이지 연결.
-- (후속) 리랭커 / native function-calling / `query_cells` 집계 고도화.
+- (후속) 리랭커 / `query_cells` 서버측 집계 고도화.
 
 ---
 
 ## 6. 검증 전략
 
-- **LLM 없이**: 세션 CRUD(API), 각 도구 어댑터(목록/컬럼/셀/청크 검색 SQL·스코프), JSON 루프
-  파서(action/answer 분기, MAX_STEPS), 출처 매핑 단위 테스트, SSE 프레이밍.
-- **LLM·임베딩 필요(이 맥은 Gemini 429)**: 에이전트 멀티스텝 E2E는 **온프렘**(TEI+vLLM)에서.
-  대표 질의 2종 스모크: ① 비정형("…에 대해 설명") ② 정형("…가 가장 ~한 문서?").
+- **LLM 없이**: 세션 CRUD(API), 각 도구 어댑터(목록/컬럼/셀/청크 검색 SQL·스코프), 출처 id 매핑,
+  SSE 프레이밍 단위 테스트.
+- **LLM·임베딩 필요(이 맥은 Gemini 429)**: 에이전트 멀티스텝 E2E는 **온프렘**(TEI+vLLM, GLM
+  tool-calling)에서. 대표 질의 2종 스모크: ① 비정형("…에 대해 설명") ② 정형("…가 가장 ~한 문서?").
+  → vLLM이 tool-calling으로 떠 있는지(`--enable-auto-tool-choice` 등) 먼저 확인.
 
 ---
 
 ## 7. 리스크 / 미해결
 
 - **정형 집계 정확도**: `query_cells` 결과를 LLM이 추론 → 큰 그리드에서 한계. 서버측 필터/집계는 후속.
-- **루프 안정성**: 잘못된 JSON/무한 반복 → 엄격 파싱 + MAX_STEPS + best-effort 종료.
+- **루프 안정성**: 무한 반복 → MAX_STEPS/recursion_limit + best-effort 종료.
+- **vLLM tool-calling 설정 의존**: GLM이 tool-call 파서로 떠 있어야 함(서버 설정). 모델별 tool-call 품질 편차 가능 → 스모크 검증.
 - **도구 결과 토큰 폭증**: 목록/셀 결과를 상한·요약. 스코프로 범위 축소.
-- **온프렘 JSON 준수**: GLM이 순수 JSON을 안 줄 수 있음 → `VLLM_JSON_OBJECT_MODE` + 코드펜스 파싱(기존 재사용).
+- **두 LLM 경로 공존**: 챗=LangChain chat model, 추출=`generate_json`. 설정(vLLM URL/모델) 공유로 일관성 유지.
 - **SSE+POST**: EventSource는 GET만 → 프론트는 fetch 스트림으로 파싱.
 
 ---
 
 ## 8. domain-design.md 정합
-본 계획은 §2.13 / §2.9–2.11 / §5 / §6.5 / §9(13–16)와 일치하도록 작성됨. 구현 중 시그니처가
+본 계획은 §2.13 / §2.9–2.11 / §5 / §6.5 / §9(13–17)와 일치하도록 작성됨. 구현 중 시그니처가
 바뀌면(예: 도구 인자, 이벤트 스키마) 두 문서를 같은 PR에서 갱신한다.
