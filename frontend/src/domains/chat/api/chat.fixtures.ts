@@ -1,3 +1,4 @@
+import { generateUuid } from "@/shared/lib/uuid";
 import type {
   ChatMessage,
   ChatSession,
@@ -24,7 +25,7 @@ export function mockListSessions(): ChatSession[] {
 
 export function mockCreateSession(scopeDocumentDbId: string | null): ChatSession {
   const session: ChatSessionDetail = {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     title: "새 대화",
     scopeDocumentDbId,
     createdAt: now(),
@@ -60,9 +61,9 @@ export const MOCK_STEPS: ChatStep[] = [
 
 const MOCK_SOURCES: ChatSource[] = [
   {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     kind: "chunk",
-    chunkId: crypto.randomUUID(),
+    chunkId: generateUuid(),
     cellId: null,
     quote:
       "...the most favored nation treatment shall apply to all fees and commercial terms granted to any other counterparty...",
@@ -71,10 +72,10 @@ const MOCK_SOURCES: ChatSource[] = [
     documentName: "ACME_MSA.pdf",
   },
   {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     kind: "cell",
     chunkId: null,
-    cellId: crypto.randomUUID(),
+    cellId: generateUuid(),
     quote: "MFN조항 = 있음",
     page: null,
     rank: 2,
@@ -87,7 +88,7 @@ const MOCK_SOURCES: ChatSource[] = [
 export function mockAppendExchange(sessionId: string, question: string): ChatMessage {
   const session = sessions.get(sessionId);
   const user: ChatMessage = {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     role: "user",
     content: question,
     steps: null,
@@ -95,7 +96,7 @@ export function mockAppendExchange(sessionId: string, question: string): ChatMes
     createdAt: now(),
   };
   const assistant: ChatMessage = {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     role: "assistant",
     content: `“${question}”에 대한 분석 결과입니다.\n\n계약서 DB의 ACME_MSA 계약이 가장 폭넓은 MFN(최혜대우) 조항을 포함하고 있습니다. (목업 응답)`,
     steps: MOCK_STEPS,
