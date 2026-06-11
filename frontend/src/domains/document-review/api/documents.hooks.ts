@@ -1,11 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PROCESSING_STATUSES } from "../model/types";
-import {
-  deleteDocument,
-  getDocumentContent,
-  listDocuments,
-  uploadDocument,
-} from "./documents.api";
+import { deleteDocument, getDocumentContent, listDocuments, uploadDocument } from "./documents.api";
 
 export const documentKeys = {
   byDb: (dbId: string) => ["documents", dbId] as const,

@@ -1,60 +1,64 @@
-import { DocumentFile, Column } from '../model/types';
+import type { Column, DocumentFile } from "../model/types";
 
 // Sample columns pre-configured for commercial agreement review
 export const SAMPLE_COLUMNS: Column[] = [
   {
-    id: 'col_sample_parties',
-    name: 'Parties',
-    type: 'list',
+    id: "col_sample_parties",
+    name: "Parties",
+    type: "list",
     prompt: `List the names or entities of all parties that are signatories to the document, and output in the following format:
 
 (1) [Party A] (Supplier)
 (2) [Party B] (Customer)
 
 Where a party is defined as something other than a 'Supplier' or 'Customer', use the term they are defined as.`,
-    status: 'idle',
-    width: 300
+    status: "idle",
+    width: 300,
   },
   {
-    id: 'col_sample_background',
-    name: 'Background',
-    type: 'text',
-    prompt: 'Specify the background, scope and the purpose of the agreement.',
-    status: 'idle',
-    width: 320
+    id: "col_sample_background",
+    name: "Background",
+    type: "text",
+    prompt: "Specify the background, scope and the purpose of the agreement.",
+    status: "idle",
+    width: 320,
   },
   {
-    id: 'col_sample_execution_date',
-    name: 'Execution date',
-    type: 'date',
-    prompt: 'What is the execution date specified in the document i.e. what date was the document signed. Note this may be different from the date on which the agreement and its obligations commence.',
-    status: 'idle',
-    width: 250
+    id: "col_sample_execution_date",
+    name: "Execution date",
+    type: "date",
+    prompt:
+      "What is the execution date specified in the document i.e. what date was the document signed. Note this may be different from the date on which the agreement and its obligations commence.",
+    status: "idle",
+    width: 250,
   },
   {
-    id: 'col_sample_term',
-    name: 'Term',
-    type: 'text',
-    prompt: 'What is the term of the contract? Please include the relevant clause or schedule reference(s), e.g. (Clause 7.6(d)).',
-    status: 'idle',
-    width: 300
+    id: "col_sample_term",
+    name: "Term",
+    type: "text",
+    prompt:
+      "What is the term of the contract? Please include the relevant clause or schedule reference(s), e.g. (Clause 7.6(d)).",
+    status: "idle",
+    width: 300,
   },
   {
-    id: 'col_sample_pricing',
-    name: 'Pricing',
-    type: 'text',
-    prompt: 'What pricing structure is outlined in the document, including details on base prices, discounts, payment terms, and any conditions that may affect pricing (such as volume discounts, promotional offers, or adjustments based on market conditions)? Are there any additional fees or charges specified?',
-    status: 'idle',
-    width: 350
+    id: "col_sample_pricing",
+    name: "Pricing",
+    type: "text",
+    prompt:
+      "What pricing structure is outlined in the document, including details on base prices, discounts, payment terms, and any conditions that may affect pricing (such as volume discounts, promotional offers, or adjustments based on market conditions)? Are there any additional fees or charges specified?",
+    status: "idle",
+    width: 350,
   },
   {
-    id: 'col_sample_termination_for_convenience',
-    name: 'Termination for Convenience Terms',
-    type: 'text',
-    prompt: 'What are the specific terms and conditions related to termination for convenience in the agreements, including notice periods, any required formalities, potential penalties or fees, and whether there are any limitations on the right to terminate for convenience?',
-    status: 'idle',
-    width: 380
-  }
+    id: "col_sample_termination_for_convenience",
+    name: "Termination for Convenience Terms",
+    type: "text",
+    prompt:
+      "What are the specific terms and conditions related to termination for convenience in the agreements, including notice periods, any required formalities, potential penalties or fees, and whether there are any limitations on the right to terminate for convenience?",
+    status: "idle",
+    width: 380,
+  },
 ];
 
 const DOC_1_METROPOLITAN = `GLOBAL VENTURES MANAGEMENT
@@ -466,14 +470,35 @@ Title: Managing Director
 `;
 
 const SIDE_LETTERS_DOCS = [
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Metropolitan_College.pdf", content: DOC_1_METROPOLITAN },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_Metropolitan_College.pdf",
+    content: DOC_1_METROPOLITAN,
+  },
   { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Global_Pension_Trust.pdf", content: DOC_2_GLOBAL },
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_State_University_Endowment_Fund.pdf", content: DOC_3_STATE },
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Teachers_Retirement_System.pdf", content: DOC_4_TEACHERS },
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Pacific_Coast_Retirement_Fund.pdf", content: DOC_5_PACIFIC },
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Heritage_Insurance_Group.pdf", content: DOC_6_HERITAGE },
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Nordic_Pension_Alliance.pdf", content: DOC_7_NORDIC },
-  { name: "Horizon_Growth_Fund_I_LP_Side_Letter_Sovereign_Wealth_Partners.pdf", content: DOC_8_SOVEREIGN },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_State_University_Endowment_Fund.pdf",
+    content: DOC_3_STATE,
+  },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_Teachers_Retirement_System.pdf",
+    content: DOC_4_TEACHERS,
+  },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_Pacific_Coast_Retirement_Fund.pdf",
+    content: DOC_5_PACIFIC,
+  },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_Heritage_Insurance_Group.pdf",
+    content: DOC_6_HERITAGE,
+  },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_Nordic_Pension_Alliance.pdf",
+    content: DOC_7_NORDIC,
+  },
+  {
+    name: "Horizon_Growth_Fund_I_LP_Side_Letter_Sovereign_Wealth_Partners.pdf",
+    content: DOC_8_SOVEREIGN,
+  },
 ];
 
 export const generateSampleFiles = (): DocumentFile[] => {
@@ -484,10 +509,10 @@ export const generateSampleFiles = (): DocumentFile[] => {
     return {
       id: `sample_doc_${index}`,
       name: doc.name,
-      type: "application/pdf", 
-      size: 25000 + Math.floor(Math.random() * 10000), 
+      type: "application/pdf",
+      size: 25000 + Math.floor(Math.random() * 10000),
       content: content,
-      mimeType: "text/plain" 
+      mimeType: "text/plain",
     };
   });
 };

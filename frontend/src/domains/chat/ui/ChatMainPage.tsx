@@ -4,6 +4,9 @@ import { ArrowUp, ChevronRight, ExternalLink, Loader2, Paperclip, X } from "@/sh
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   chatSessionKeys,
   useChatSessionDetail,
@@ -34,6 +37,61 @@ const stripDraftMarkers = (draft: string): string =>
   draft
     .replace(/\[(chunk|cell):[0-9a-fA-F-]{36}\]/g, "")
     .replace(/\[(?:c(?:h(?:u(?:n(?:k)?)?)?|e(?:l(?:l)?)?)?)?:?[0-9a-fA-F-]*$/, "");
+
+// Chat-bubble markdown styling (the agent answers in markdown — headings,
+// tables, lists). Sized for chat (text-sm) vs the document viewer's article.
+const CHAT_MD_COMPONENTS: Components = {
+  h1: ({ children }) => <h2 className="text-sm font-semibold text-ink mt-3 mb-1">{children}</h2>,
+  h2: ({ children }) => <h2 className="text-sm font-semibold text-ink mt-3 mb-1">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-sm font-semibold text-ink mt-2.5 mb-1">{children}</h3>,
+  p: ({ children }) => <p className="text-sm leading-relaxed text-ink my-1.5">{children}</p>,
+  ul: ({ children }) => (
+    <ul className="list-disc pl-5 my-1.5 space-y-1 text-sm text-ink">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal pl-5 my-1.5 space-y-1 text-sm text-ink">{children}</ol>
+  ),
+  strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+  a: ({ children, href }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2"
+    >
+      {children}
+    </a>
+  ),
+  code: ({ children }) => (
+    <code className="px-1 py-0.5 rounded bg-surface-muted text-[13px] font-mono">{children}</code>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-2 border-border-strong pl-3 my-1.5 text-ink-2">
+      {children}
+    </blockquote>
+  ),
+  table: ({ children }) => (
+    <div className="my-2 overflow-x-auto">
+      <table className="w-full text-sm border-collapse">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="border border-border px-2 py-1 bg-surface-muted text-left align-top">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => <td className="border border-border px-2 py-1 align-top">{children}</td>,
+};
+
+function ChatMarkdown({ content }: { content: string }) {
+  return (
+    <div className="break-words">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={CHAT_MD_COMPONENTS}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 function Composer({
   value,
@@ -216,11 +274,15 @@ export function ChatMainPage() {
     setPanelOpen(true);
   };
 
-  // Jump targets (plan §4.1): chunk → document viewer, cell → the DB grid.
+  // Jump targets (plan §4.1): chunk → document viewer (cited passage
+  // highlighted via the quote param), cell → the DB grid.
   const sourceLink = (s: ChatSource): string | null => {
     if (!s.documentDbId) return null;
     const base = `/document-dbs/${s.documentDbId}`;
-    return s.kind === "chunk" && s.documentId ? `${base}?doc=${s.documentId}` : base;
+    if (s.kind === "chunk" && s.documentId) {
+      return `${base}?doc=${s.documentId}&quote=${encodeURIComponent(s.quote)}`;
+    }
+    return base;
   };
 
   const refresh = (sessionId: string) => {
@@ -250,8 +312,7 @@ export function ChatMainPage() {
     await sendChatMessageStream(sid, q, {
       // A step after streamed text means that text was a tool-calling round's
       // preamble, not the answer — drop the draft and keep the timeline.
-      onStep: (step) =>
-        setPending((p) => (p ? { ...p, steps: [...p.steps, step], draft: "" } : p)),
+      onStep: (step) => setPending((p) => (p ? { ...p, steps: [...p.steps, step], draft: "" } : p)),
       onDelta: (text) => setPending((p) => (p ? { ...p, draft: p.draft + text } : p)),
       onAnswer: () => {},
       onDone: () => {
@@ -336,9 +397,7 @@ export function ChatMainPage() {
                   ) : (
                     <div key={m.id}>
                       {m.steps && m.steps.length > 0 && <StepTrace steps={m.steps} />}
-                      <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap break-words">
-                        {m.content}
-                      </p>
+                      <ChatMarkdown content={m.content} />
                       {m.sources.length > 0 && (
                         <SourceCitations
                           sources={m.sources}
@@ -361,10 +420,10 @@ export function ChatMainPage() {
                   <StepTimeline steps={pending.steps} />
                 )}
                 {streaming && pending && pending.draft !== "" && (
-                  <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap break-words">
-                    {stripDraftMarkers(pending.draft)}
+                  <div>
+                    <ChatMarkdown content={stripDraftMarkers(pending.draft)} />
                     <span className="inline-block w-[2px] h-4 ml-0.5 align-text-bottom bg-ink-3 animate-pulse" />
-                  </p>
+                  </div>
                 )}
                 {pending?.error && (
                   <div className="flex items-start gap-3">

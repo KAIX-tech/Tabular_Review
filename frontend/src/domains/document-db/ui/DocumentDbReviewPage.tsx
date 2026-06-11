@@ -88,17 +88,21 @@ export const DocumentDbReviewPage: React.FC = () => {
   const realIngestion = !ENV.mocks.review;
   const { data: ingestedDocs } = useDocuments(realIngestion ? dbId : "");
 
-  // Deep link from chat source chips (?doc=<documentId>): open the document
-  // viewer once the document list is loaded. Read from window.location (not
+  // Deep link from chat source chips (?doc=<documentId>&quote=<passage>): open
+  // the document viewer once the document list is loaded, highlighting the
+  // cited passage when a quote rides along. Read from window.location (not
   // useSearchParams) to stay client-only — no Suspense boundary needed.
   const deepLinkHandled = useRef(false);
+  const [viewerQuote, setViewerQuote] = useState<string | null>(null);
   useEffect(() => {
     if (deepLinkHandled.current || !ingestedDocs?.length) return;
-    const docParam = new URLSearchParams(window.location.search).get("doc");
+    const params = new URLSearchParams(window.location.search);
+    const docParam = params.get("doc");
     if (!docParam) return;
     deepLinkHandled.current = true;
     if (ingestedDocs.some((d) => d.id === docParam)) {
       setViewerDocId(docParam);
+      setViewerQuote(params.get("quote"));
       setSelectedCell(null);
       setSidebarMode("viewer");
     }
@@ -474,6 +478,7 @@ export const DocumentDbReviewPage: React.FC = () => {
     if (realIngestion) {
       setSelectedCell(null);
       setPreviewDocId(null);
+      setViewerQuote(null); // manual open — drop any deep-linked citation highlight
       setViewerDocId(docId);
       setSidebarMode("viewer");
       setIsSidebarExpanded(false);
@@ -831,7 +836,11 @@ export const DocumentDbReviewPage: React.FC = () => {
                     documentId={doc.id}
                     name={doc.name}
                     status={doc.status}
-                    onClose={closeSidebar}
+                    onClose={() => {
+                      setViewerQuote(null);
+                      closeSidebar();
+                    }}
+                    highlightQuote={viewerQuote}
                   />
                 ) : null;
               })()}

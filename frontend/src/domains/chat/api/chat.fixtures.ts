@@ -98,7 +98,7 @@ export function mockAppendExchange(sessionId: string, question: string): ChatMes
   const assistant: ChatMessage = {
     id: generateUuid(),
     role: "assistant",
-    content: `“${question}”에 대한 분석 결과입니다.\n\n계약서 DB의 ACME_MSA 계약이 가장 폭넓은 MFN(최혜대우) 조항을 포함하고 있습니다. (목업 응답)`,
+    content: `“${question}”에 대한 분석 결과입니다.\n\n## 비교 결과\n\n| 문서 | MFN 조항 | 비고 |\n|---|---|---|\n| ACME_MSA.pdf | **있음** | 범위 최광 |\n| Beta_NDA.pdf | 없음 | - |\n\n계약서 DB의 **ACME_MSA** 계약이 가장 폭넓은 MFN(최혜대우) 조항을 포함하고 있습니다. (목업 응답)`,
     steps: MOCK_STEPS,
     sources: MOCK_SOURCES,
     createdAt: now(),

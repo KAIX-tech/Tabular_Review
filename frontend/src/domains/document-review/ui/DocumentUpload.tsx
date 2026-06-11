@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import React, { useCallback } from 'react';
-import { Upload, FileText, FlaskConical } from '@/shared/ui/icons';
-import { DocumentFile } from '../model/types';
+import { FileText, FlaskConical, Upload } from "@/shared/ui/icons";
+import type React from "react";
+import { useCallback } from "react";
+import type { DocumentFile } from "../model/types";
 
 interface DocumentUploadProps {
   onUpload: (files: DocumentFile[]) => void;
@@ -10,7 +11,6 @@ interface DocumentUploadProps {
 }
 
 export const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, onLoadSample }) => {
-  
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const fileList: File[] = Array.from(event.target.files);
@@ -24,7 +24,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, onLoad
           type: file.type,
           size: file.size,
           content: content, // Base64 string (without data: prefix for easier handling if needed, but here we keep pure base64)
-          mimeType: file.type || 'text/plain'
+          mimeType: file.type || "text/plain",
         });
       }
       onUpload(processedFiles);
@@ -37,7 +37,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, onLoad
       reader.onload = () => {
         const result = reader.result as string;
         // Remove data URL prefix (e.g., "data:application/pdf;base64,")
-        const base64 = result.split(',')[1];
+        const base64 = result.split(",")[1];
         resolve(base64);
       };
       reader.onerror = reject;
@@ -48,10 +48,10 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, onLoad
   return (
     <div className="p-6 w-full max-w-2xl mx-auto">
       <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center hover:bg-slate-50 transition-colors relative group bg-white shadow-sm">
-        <input 
-          type="file" 
-          multiple 
-          accept=".pdf,.txt,.md,.json" 
+        <input
+          type="file"
+          multiple
+          accept=".pdf,.txt,.md,.json"
           onChange={handleFileChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
@@ -70,11 +70,13 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, onLoad
         <div className="mt-8 flex flex-col items-center">
           <div className="relative w-full flex items-center gap-4 mb-6">
             <div className="h-px bg-slate-200 flex-1"></div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Or try sample data</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Or try sample data
+            </span>
             <div className="h-px bg-slate-200 flex-1"></div>
           </div>
-          
-          <button 
+
+          <button
             onClick={onLoadSample}
             className="group flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-300"
           >
@@ -82,8 +84,12 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({ onUpload, onLoad
               <FlaskConical className="w-5 h-5 text-slate-500 group-hover:text-emerald-600" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-semibold text-slate-700 group-hover:text-emerald-800">Load PE Side Letter Dataset</p>
-              <p className="text-xs text-slate-500 group-hover:text-emerald-600">Includes 10 docs & 4 extraction columns</p>
+              <p className="text-sm font-semibold text-slate-700 group-hover:text-emerald-800">
+                Load PE Side Letter Dataset
+              </p>
+              <p className="text-xs text-slate-500 group-hover:text-emerald-600">
+                Includes 10 docs & 4 extraction columns
+              </p>
             </div>
           </button>
         </div>

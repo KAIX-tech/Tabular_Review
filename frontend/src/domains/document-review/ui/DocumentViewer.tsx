@@ -1,22 +1,30 @@
 "use client";
 
+import { Download, FileText, Loader2, X } from "@/shared/ui/icons";
 import type React from "react";
+import { useEffect, useRef } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Download, FileText, Loader2, X } from "@/shared/ui/icons";
 import { documentFileUrl } from "../api/documents.api";
 import { useDocumentContent } from "../api/documents.hooks";
+import { findQuoteRange } from "../lib/quote-range";
 import type { DocumentStatus } from "../model/types";
 
 // Map Markdown elements to styled, readable document typography.
 const MD_COMPONENTS: Components = {
   h1: ({ children }) => <h1 className="text-lg font-semibold text-ink mt-5 mb-2">{children}</h1>,
-  h2: ({ children }) => <h2 className="text-base font-semibold text-ink mt-5 mb-1.5">{children}</h2>,
+  h2: ({ children }) => (
+    <h2 className="text-base font-semibold text-ink mt-5 mb-1.5">{children}</h2>
+  ),
   h3: ({ children }) => <h3 className="text-sm font-semibold text-ink mt-4 mb-1">{children}</h3>,
   p: ({ children }) => <p className="text-[15px] leading-relaxed text-ink-2 my-2">{children}</p>,
-  ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1 text-[15px] text-ink-2">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal pl-5 my-2 space-y-1 text-[15px] text-ink-2">{children}</ol>,
+  ul: ({ children }) => (
+    <ul className="list-disc pl-5 my-2 space-y-1 text-[15px] text-ink-2">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal pl-5 my-2 space-y-1 text-[15px] text-ink-2">{children}</ol>
+  ),
   strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
   // Wrap in a horizontal scroller so wide tables don't overflow the panel.
   table: ({ children }) => (
@@ -25,7 +33,9 @@ const MD_COMPONENTS: Components = {
     </div>
   ),
   th: ({ children }) => (
-    <th className="border border-border px-2 py-1 bg-surface-muted text-left align-top">{children}</th>
+    <th className="border border-border px-2 py-1 bg-surface-muted text-left align-top">
+      {children}
+    </th>
   ),
   td: ({ children }) => <td className="border border-border px-2 py-1 align-top">{children}</td>,
 };
@@ -35,6 +45,8 @@ interface DocumentViewerProps {
   name: string;
   status: DocumentStatus;
   onClose: () => void;
+  /** Quoted passage to highlight + scroll to (e.g. a chat chunk citation). */
+  highlightQuote?: string | null;
 }
 
 /** Right-panel viewer for an ingested document: shows the converted Markdown and
@@ -44,9 +56,39 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   name,
   status,
   onClose,
+  highlightQuote,
 }) => {
   const isReady = status === "ready";
   const { data: markdown, isLoading } = useDocumentContent(documentId, isReady);
+  const articleRef = useRef<HTMLElement>(null);
+
+  // Highlight the cited passage once the markdown has rendered. Uses the CSS
+  // Custom Highlight API (no DOM mutation, spans element boundaries); falls
+  // back to a text selection where unsupported. Always scrolls to the match.
+  useEffect(() => {
+    if (!highlightQuote || !markdown) return;
+    const timer = window.setTimeout(() => {
+      const root = articleRef.current;
+      if (!root) return;
+      const range = findQuoteRange(root, highlightQuote);
+      if (!range) return;
+      if ("highlights" in CSS) {
+        CSS.highlights.set("kalex-quote", new Highlight(range));
+      } else {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
+      (range.startContainer.parentElement ?? root).scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 80);
+    return () => {
+      window.clearTimeout(timer);
+      if ("highlights" in CSS) CSS.highlights.delete("kalex-quote");
+    };
+  }, [highlightQuote, markdown]);
 
   return (
     <div className="flex flex-col h-full bg-surface">
@@ -84,7 +126,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
         ) : markdown ? (
-          <article className="max-w-none break-words">
+          <article ref={articleRef} className="max-w-none break-words">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
               {markdown}
             </ReactMarkdown>

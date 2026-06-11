@@ -1,7 +1,7 @@
-import axios from "axios";
-import { z } from "zod";
 import { getApiUrl } from "@/shared/api/config";
 import { ENV } from "@/shared/config/env";
+import axios from "axios";
+import { z } from "zod";
 import { type IngestedDocument, ingestedDocumentSchema } from "../model/types";
 
 /**
@@ -15,16 +15,10 @@ export async function listDocuments(documentDbId: string): Promise<IngestedDocum
   return z.array(ingestedDocumentSchema).parse(data);
 }
 
-export async function uploadDocument(
-  documentDbId: string,
-  file: File,
-): Promise<IngestedDocument> {
+export async function uploadDocument(documentDbId: string, file: File): Promise<IngestedDocument> {
   const form = new FormData();
   form.append("file", file);
-  const { data } = await axios.post(
-    `${getApiUrl()}/document-dbs/${documentDbId}/documents`,
-    form,
-  );
+  const { data } = await axios.post(`${getApiUrl()}/document-dbs/${documentDbId}/documents`, form);
   return ingestedDocumentSchema.parse(data);
 }
 
