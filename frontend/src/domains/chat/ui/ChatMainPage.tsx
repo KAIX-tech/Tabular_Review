@@ -1,6 +1,6 @@
 "use client";
 
-import { CellDetailCard, useCellDetail } from "@/domains/document-review";
+import { CellDetailCard, DocumentViewer, useCellDetail } from "@/domains/document-review";
 import { ArrowUp, ChevronRight, ExternalLink, Loader2, Paperclip, X } from "@/shared/ui/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -25,10 +25,17 @@ const SUGGESTED = [
 
 /** In-flight agent turn: the question, live steps/draft, a terminal error (D9). */
 interface PendingTurn {
+  sessionId: string;
   question: string;
   steps: ChatStep[];
   /** Token-streamed answer text (SSE `delta`); replaced by the final answer. */
   draft: string;
+  /** Authoritative answer text once the `answer` event lands. */
+  finalContent: string | null;
+  /** `done`/non-stream completion received — finish after the reveal drains. */
+  done: boolean;
+  /** How many blocks are currently revealed (paced cascade). */
+  revealed: number;
   error: string | null;
 }
 
@@ -39,17 +46,31 @@ const stripDraftMarkers = (draft: string): string =>
     .replace(/\[(chunk|cell):[0-9a-fA-F-]{36}\]/g, "")
     .replace(/\[(?:c(?:h(?:u(?:n(?:k)?)?)?|e(?:l(?:l)?)?)?)?:?[0-9a-fA-F-]*$/, "");
 
-// Block-buffered reveal: render only up to the last COMPLETED markdown block
-// (blank line) so streamed content appears element-at-a-time, each fading in
-// via .chat-fade-blocks — never growing character by character. Blocks must be
-// whole because markdown reinterprets multi-line constructs (a table header
-// line alone renders as a paragraph until its separator arrives). The
-// unfinished tail stays hidden until its boundary arrives; the final `answer`
-// event always delivers the full text.
+// Only COMPLETED markdown blocks (blank-line boundary) are eligible for
+// display. Blocks must be whole because markdown reinterprets multi-line
+// constructs (a table header line alone renders as a paragraph until its
+// separator arrives).
 const completedBlocks = (draft: string): string => {
   const lastBoundary = draft.lastIndexOf("\n\n");
   return lastBoundary >= 0 ? draft.slice(0, lastBoundary + 2) : "";
 };
+
+/** The full set of blocks available so far (final answer wins over the draft). */
+const pendingBlocks = (p: PendingTurn): string[] => {
+  const text = p.finalContent ?? stripDraftMarkers(completedBlocks(p.draft));
+  return text
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+};
+
+// Paced reveal cadence: one block per tick gives a continuous, flowing
+// cascade even when the network delivers blocks in bursts. Catch up faster
+// when the queue builds so long answers don't drag (user-accepted tradeoff:
+// slightly later full delivery for smoothness).
+const REVEAL_INTERVAL_MS = 180;
+const REVEAL_CATCHUP_MS = 90;
+const REVEAL_CATCHUP_THRESHOLD = 3;
 
 // Chat-bubble markdown styling (the agent answers in markdown — headings,
 // tables, lists). Sized for chat (text-sm) vs the document viewer's article.
@@ -353,11 +374,22 @@ export function ChatMainPage() {
     queryClient.invalidateQueries({ queryKey: chatSessionKeys.detail(sessionId) });
   };
 
+  const emptyTurn = (sessionId: string, question: string): PendingTurn => ({
+    sessionId,
+    question,
+    steps: [],
+    draft: "",
+    finalContent: null,
+    done: false,
+    revealed: 0,
+    error: null,
+  });
+
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || streaming) return;
     setInput("");
-    setPending({ question: q, steps: [], draft: "", error: null });
+    setPending(emptyTurn("", q));
 
     let sessionId = activeId && detail ? activeId : null;
     if (!sessionId) {
@@ -366,27 +398,30 @@ export function ChatMainPage() {
         sessionId = session.id;
         selectSession(session.id);
       } catch {
-        setPending({ question: q, steps: [], draft: "", error: "세션을 만들지 못했습니다." });
+        setPending({ ...emptyTurn("", q), error: "세션을 만들지 못했습니다." });
         return;
       }
     }
     const sid = sessionId;
+    setPending((p) => (p ? { ...p, sessionId: sid } : p));
 
     await sendChatMessageStream(sid, q, {
       // A step after streamed text means that text was a tool-calling round's
       // preamble, not the answer — drop the draft and keep the timeline.
-      onStep: (step) => setPending((p) => (p ? { ...p, steps: [...p.steps, step], draft: "" } : p)),
+      onStep: (step) =>
+        setPending((p) =>
+          p ? { ...p, steps: [...p.steps, step], draft: "", finalContent: null, revealed: 0 } : p,
+        ),
       onDelta: (text) => setPending((p) => (p ? { ...p, draft: p.draft + text } : p)),
-      onAnswer: () => {},
-      onDone: () => {
-        refresh(sid);
-        setPending(null);
-      },
+      onAnswer: (answer) => setPending((p) => (p ? { ...p, finalContent: answer.content } : p)),
+      // Don't clear yet — the paced reveal drains the remaining blocks first;
+      // the reveal effect below performs refresh + clear once caught up.
+      onDone: () => setPending((p) => (p ? { ...p, done: true } : p)),
       onError: (message) => {
         // D9: the question is already persisted server-side — show it + retry.
         refresh(sid);
         setPending((p) =>
-          p ? { ...p, error: message } : { question: q, steps: [], draft: "", error: message },
+          p ? { ...p, error: message } : { ...emptyTurn(sid, q), error: message },
         );
       },
     });
@@ -400,9 +435,29 @@ export function ChatMainPage() {
   };
 
   const isEmpty = messages.length === 0 && pending === null;
-  // Only fully completed blocks are shown while streaming (element reveal).
-  const visibleDraft =
-    streaming && pending ? stripDraftMarkers(completedBlocks(pending.draft)) : "";
+  // Paced cascade: blocks become *eligible* as they complete, and are revealed
+  // one at a time so the fade-in flows continuously even on bursty delivery.
+  const blocks = pending && !pending.error ? pendingBlocks(pending) : [];
+  const visibleDraft = streaming && pending ? blocks.slice(0, pending.revealed).join("\n\n") : "";
+  useEffect(() => {
+    if (!pending || pending.error) return;
+    if (pending.revealed >= blocks.length) {
+      if (pending.done && pending.sessionId) {
+        refresh(pending.sessionId);
+        setPending(null);
+      }
+      return;
+    }
+    const behind = blocks.length - pending.revealed;
+    const timer = window.setTimeout(
+      () => setPending((p) => (p ? { ...p, revealed: p.revealed + 1 } : p)),
+      behind > REVEAL_CATCHUP_THRESHOLD ? REVEAL_CATCHUP_MS : REVEAL_INTERVAL_MS,
+    );
+    return () => window.clearTimeout(timer);
+    // Deliberately keyed to block COUNT (not the draft text) so per-token
+    // re-renders don't reset the cadence timer.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  }, [pending?.revealed, pending?.done, pending?.error, blocks.length]);
   const activeCite = panelOpen ? source : null;
   // While streaming, the just-asked question isn't in the server detail yet —
   // render it locally; once refreshed it comes from the server (dedup below).
@@ -523,58 +578,71 @@ export function ChatMainPage() {
         )}
       </section>
 
-      {/* Source citation drawer — slides in over the content (no reflow). Esc / outside click closes. */}
+      {/* Source citation drawer — slides in over the content (no reflow). Esc /
+          outside click closes. Chunk sources open the SAME document-viewer
+          panel used everywhere else (markdown + quote highlight) — no separate
+          quote-preview UI; cell sources show the shared cell detail card. */}
       <aside
         ref={drawerRef}
-        className={`absolute top-0 right-0 h-full w-[360px] bg-surface border-l border-border shadow-popover flex flex-col transition-transform duration-300 ease-out ${
+        className={`absolute top-0 right-0 h-full ${
+          source?.kind === "chunk" && source.documentId ? "w-[600px] max-w-[90vw]" : "w-[360px]"
+        } bg-surface border-l border-border shadow-popover flex flex-col transition-transform duration-300 ease-out ${
           panelOpen ? "translate-x-0" : "translate-x-full"
         }`}
         aria-hidden={!panelOpen}
       >
-        {source && (
-          <>
-            <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="tr-badge tr-badge-neutral shrink-0">
-                  {source.kind === "chunk" ? "원문" : "추출값"}
-                </span>
-                <span className="text-sm font-medium text-ink truncate">
-                  {source.documentName ?? "문서"}
-                </span>
-                {source.kind === "chunk" && source.page != null && (
-                  <span className="text-xs text-ink-3 shrink-0">p.{source.page}</span>
-                )}
-                {source.kind === "cell" && source.columnName && (
-                  <span className="text-xs text-ink-3 shrink-0 truncate">{source.columnName}</span>
-                )}
-              </div>
-              <button type="button" onClick={() => setPanelOpen(false)} className="tr-icon-btn">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              {source.kind === "cell" ? (
-                <ChatCellSourceDetail source={source} />
-              ) : (
-                <p className="text-sm leading-relaxed text-ink">
-                  <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>
-                </p>
-              )}
-            </div>
-            {sourceLink(source) && (
-              <div className="p-4 border-t border-border shrink-0">
-                <button
-                  type="button"
-                  onClick={() => router.push(sourceLink(source) as string)}
-                  className="tr-btn tr-btn-secondary w-full justify-center gap-1.5 h-9 text-xs"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  {source.kind === "chunk" ? "문서에서 보기" : "그리드에서 보기"}
+        {source &&
+          (source.kind === "chunk" && source.documentId ? (
+            <DocumentViewer
+              documentId={source.documentId}
+              name={source.documentName ?? "문서"}
+              status="ready"
+              onClose={() => setPanelOpen(false)}
+              highlightQuote={source.quote}
+            />
+          ) : (
+            <>
+              <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="tr-badge tr-badge-neutral shrink-0">
+                    {source.kind === "chunk" ? "원문" : "추출값"}
+                  </span>
+                  <span className="text-sm font-medium text-ink truncate">
+                    {source.documentName ?? "문서"}
+                  </span>
+                  {source.kind === "cell" && source.columnName && (
+                    <span className="text-xs text-ink-3 shrink-0 truncate">
+                      {source.columnName}
+                    </span>
+                  )}
+                </div>
+                <button type="button" onClick={() => setPanelOpen(false)} className="tr-icon-btn">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            )}
-          </>
-        )}
+              <div className="flex-1 overflow-y-auto p-5">
+                {source.kind === "cell" ? (
+                  <ChatCellSourceDetail source={source} />
+                ) : (
+                  <p className="text-sm leading-relaxed text-ink">
+                    <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>
+                  </p>
+                )}
+              </div>
+              {source.kind === "cell" && sourceLink(source) && (
+                <div className="p-4 border-t border-border shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => router.push(sourceLink(source) as string)}
+                    className="tr-btn tr-btn-secondary w-full justify-center gap-1.5 h-9 text-xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    그리드에서 보기
+                  </button>
+                </div>
+              )}
+            </>
+          ))}
       </aside>
     </div>
   );
