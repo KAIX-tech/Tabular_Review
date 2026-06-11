@@ -49,21 +49,33 @@ export const CellValue: React.FC<CellValueProps> = ({ type, value, valueJson, wr
 
   if (type === "list") {
     const items = listItems(value, valueJson);
-    if (items.length === 0) return <span className={`${baseText} ${clamp}`}>{value}</span>;
+    // Single (or no) item — plain text, no list chrome.
+    if (items.length <= 1) {
+      const text = items[0] ?? value;
+      return (
+        <span className={`${baseText} ${clamp}`} title={text}>
+          {text}
+        </span>
+      );
+    }
+    // Compact row: comma-joined single line (truncated, full list in tooltip).
+    if (!wrap) {
+      const joined = items.join(", ");
+      return (
+        <span className={`${baseText} ${clamp}`} title={joined}>
+          {joined}
+        </span>
+      );
+    }
+    // Wrap mode / detail panel: markdown-style bullet lines, one per item.
     return (
-      <div
-        className={`flex items-center gap-1 ${wrap ? "flex-wrap" : "overflow-hidden"}`}
-        title={items.join(", ")}
-      >
+      <ul className={`list-disc pl-4 space-y-0.5 ${baseText}`}>
         {items.map((item, i) => (
-          <span
-            key={`${item}-${i}`}
-            className="inline-flex max-w-[160px] shrink-0 truncate px-1.5 py-0.5 rounded-md bg-surface-muted text-xs text-ink-2"
-          >
+          <li key={`${item}-${i}`} className="break-words text-ink">
             {item}
-          </span>
+          </li>
         ))}
-      </div>
+      </ul>
     );
   }
 
