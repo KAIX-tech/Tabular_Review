@@ -149,9 +149,37 @@ mark {
     transform: none;
   }
 }
-.chat-fade-blocks :is(p, li, h1, h2, h3, h4, tr, blockquote, pre, hr) {
+/* Container-level entrance for non-text constructs; text blocks (p/li/h*)
+   animate word-by-word instead (.kalex-word below). */
+.chat-fade-blocks :is(table, blockquote, pre, hr) {
   animation: kalex-block-in 0.22s ease-out both;
 }
 .kalex-fade-in {
   animation: kalex-block-in 0.22s ease-out both;
+}
+
+/* Word-level stagger inside newly revealed streaming blocks: each word fades
+   up with an incremental delay, so a block surfaces as a flowing wave instead
+   of a single pop. Block pacing (180ms) overlaps consecutive waves. */
+@keyframes kalex-word-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.kalex-word {
+  display: inline-block;
+  animation: kalex-word-in 0.3s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kalex-word,
+  .chat-fade-blocks :is(table, blockquote, pre, hr),
+  .kalex-fade-in {
+    animation: none;
+  }
 }

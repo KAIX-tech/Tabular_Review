@@ -4,7 +4,7 @@ import { CellDetailCard, DocumentViewer, useCellDetail } from "@/domains/documen
 import { ArrowUp, ChevronRight, ExternalLink, Loader2, Paperclip, X } from "@/shared/ui/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { isValidElement, useEffect, useRef, useState } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -117,13 +117,89 @@ const CHAT_MD_COMPONENTS: Components = {
   td: ({ children }) => <td className="border border-border px-2 py-1 align-top">{children}</td>,
 };
 
+// Word-stagger: wrap each word of a freshly mounted block in a span with an
+// incremental animation-delay so the block surfaces as a flowing wave (like
+// modern LLM chats) instead of popping in as one unit. React keeps existing
+// block DOM across streaming re-renders, so only new blocks wave in.
+const WORD_STAGGER_MS = 24;
+const WORD_STAGGER_CAP_MS = 600;
+
+function Stagger({ children }: { children: React.ReactNode }) {
+  let index = 0;
+  const delay = () => `${Math.min(index++ * WORD_STAGGER_MS, WORD_STAGGER_CAP_MS)}ms`;
+  const wrap = (node: React.ReactNode, key?: string | number): React.ReactNode => {
+    if (typeof node === "string") {
+      return node.split(/(\s+)/).map((part, k) =>
+        part === "" || /^\s+$/.test(part) ? (
+          part
+        ) : (
+          <span key={`${key}-${k}`} className="kalex-word" style={{ animationDelay: delay() }}>
+            {part}
+          </span>
+        ),
+      );
+    }
+    if (Array.isArray(node)) return node.map((child, k) => wrap(child, k));
+    if (isValidElement(node)) {
+      // Nested inline elements (strong/code/links) wave in as one unit.
+      return (
+        <span key={key} className="kalex-word" style={{ animationDelay: delay() }}>
+          {node}
+        </span>
+      );
+    }
+    return node;
+  };
+  return <>{wrap(children)}</>;
+}
+
+// Streaming variant of the markdown map: text blocks stagger word-by-word;
+// container constructs (table/blockquote) keep the block-level fade (CSS).
+const STREAM_MD_COMPONENTS: Components = {
+  ...CHAT_MD_COMPONENTS,
+  h1: ({ children }) => (
+    <h2 className="text-sm font-semibold text-ink mt-3 mb-1">
+      <Stagger>{children}</Stagger>
+    </h2>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-sm font-semibold text-ink mt-3 mb-1">
+      <Stagger>{children}</Stagger>
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-sm font-semibold text-ink mt-2.5 mb-1">
+      <Stagger>{children}</Stagger>
+    </h3>
+  ),
+  p: ({ children }) => (
+    <p className="text-sm leading-relaxed text-ink my-1.5">
+      <Stagger>{children}</Stagger>
+    </p>
+  ),
+  li: ({ children }) => (
+    <li>
+      <Stagger>{children}</Stagger>
+    </li>
+  ),
+  td: ({ children }) => (
+    <td className="border border-border px-2 py-1 align-top">
+      <Stagger>{children}</Stagger>
+    </td>
+  ),
+};
+
 function ChatMarkdown({ content, animated = false }: { content: string; animated?: boolean }) {
-  // `animated` turns on per-block fade-in (globals.css .chat-fade-blocks):
-  // blocks already in the DOM keep their nodes across streaming re-renders,
-  // so only newly arrived lines animate.
+  // `animated` (streaming draft): word-stagger for text blocks + block fade
+  // for container constructs (.chat-fade-blocks). Finished messages render
+  // statically — blocks already in the DOM keep their nodes across streaming
+  // re-renders, so only newly arrived content animates.
   return (
     <div className={`break-words ${animated ? "chat-fade-blocks" : ""}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={CHAT_MD_COMPONENTS}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={animated ? STREAM_MD_COMPONENTS : CHAT_MD_COMPONENTS}
+      >
         {content}
       </ReactMarkdown>
     </div>
