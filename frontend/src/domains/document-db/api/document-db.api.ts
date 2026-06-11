@@ -1,7 +1,8 @@
-import axios from "axios";
-import { z } from "zod";
 import { getApiUrl } from "@/shared/api/config";
 import { ENV } from "@/shared/config/env";
+import { generateUuid } from "@/shared/lib/uuid";
+import axios from "axios";
+import { z } from "zod";
 import { type DocumentDb, documentDbSchema } from "../model/types";
 import { MOCK_DOCUMENT_DBS } from "./document-dbs.fixtures";
 
@@ -46,7 +47,7 @@ export async function createDocumentDb(input: CreateDocumentDbInput): Promise<Do
   if (ENV.mocks.documentDb) {
     await mockDelay();
     const db: DocumentDb = {
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       name: input.name,
       description: input.description,
       documentCount: 0,
