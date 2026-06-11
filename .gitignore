@@ -27,3 +27,5 @@ dist-ssr
 # Prefetched Docling model bundle (air-gapped deploy artifact; do not commit)
 docling-models-bundle.tar
 docling-models-bundle/
+# Unpacked Docling models (DOCLING_MODELS_HOST_PATH default — mounted into prod compose)
+docling-models/
