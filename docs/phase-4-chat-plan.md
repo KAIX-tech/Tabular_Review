@@ -193,8 +193,11 @@ DTO는 camelCase로 프론트 Zod 미러.
   에러 버블·재시도/세션 재오픈 렌더까지 브라우저 확인. 이 과정에서 백엔드 결함 2건 수정:
   ① 메시지 영속 시 lazy-load(MissingGreenlet) → selectinload 재조회, ② user 메시지가
   스트림 종료 시점 커밋이라 disconnect 시 유실 → `add_user_message`에서 즉시 커밋(D9)).
-- (후속) 리랭커 / `query_cells` 서버측 집계 고도화 / 출처 점프 고도화(셀 포커스·인용구
-  자동 스크롤) / 운영 LLM E2E(§6 스모크).
+- (후속) 리랭커 / `query_cells` 서버측 집계 고도화 / 운영 LLM E2E(§6 스모크).
+  참조 패널 통일 완료: 원문 참조 = md 뷰어+하이라이트(검증 사이드바 포함, 공용
+  `useQuoteHighlight`), 추출값 참조 = 공용 `CellDetailCard`(챗 드로어 = 읽기전용
+  셀 디테일, `GET /cells/{id}`), 셀 출처 점프 = `?cell=<docId>:<colId>` 딥링크로
+  그리드 셀 자동 선택.
 
 ---
 

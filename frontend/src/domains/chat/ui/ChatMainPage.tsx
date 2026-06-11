@@ -1,5 +1,6 @@
 "use client";
 
+import { CellDetailCard, useCellDetail } from "@/domains/document-review";
 import { ArrowUp, ChevronRight, ExternalLink, Loader2, Paperclip, X } from "@/shared/ui/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -239,6 +240,50 @@ function SourceCitations({
   );
 }
 
+/** Cell-citation detail in the source drawer — the same card the admin
+ *  verification sidebar uses (값/신뢰도/추론/출처), loaded read-only by id. */
+function ChatCellSourceDetail({ source }: { source: ChatSource }) {
+  const { data: cell, isLoading } = useCellDetail(source.cellId);
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <div className="h-4 w-24 rounded bg-surface-muted animate-pulse" />
+        <div className="h-6 w-40 rounded bg-surface-muted animate-pulse" />
+        <div className="h-16 rounded bg-surface-muted animate-pulse" />
+      </div>
+    );
+  }
+  if (!cell) {
+    return (
+      <p className="text-sm leading-relaxed text-ink">
+        <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>
+      </p>
+    );
+  }
+  const confidence =
+    cell.confidence === "high"
+      ? "High"
+      : cell.confidence === "medium"
+        ? "Medium"
+        : cell.confidence === "low"
+          ? "Low"
+          : null;
+  const cellSource = cell.sources[0];
+  return (
+    <CellDetailCard
+      data={{
+        columnName: source.columnName ?? "추출값",
+        value: cell.value ?? "",
+        valueJson: cell.valueJson,
+        confidence,
+        reasoning: cell.reasoning,
+        quote: cellSource?.quote ?? source.quote,
+        page: cellSource?.page ?? null,
+      }}
+    />
+  );
+}
+
 /** Global chat across all Document DBs — server sessions + agent SSE (PR-C). */
 export function ChatMainPage() {
   const router = useRouter();
@@ -290,12 +335,15 @@ export function ChatMainPage() {
   };
 
   // Jump targets (plan §4.1): chunk → document viewer (cited passage
-  // highlighted via the quote param), cell → the DB grid.
+  // highlighted via the quote param), cell → the grid with that cell selected.
   const sourceLink = (s: ChatSource): string | null => {
     if (!s.documentDbId) return null;
     const base = `/document-dbs/${s.documentDbId}`;
     if (s.kind === "chunk" && s.documentId) {
       return `${base}?doc=${s.documentId}&quote=${encodeURIComponent(s.quote)}`;
+    }
+    if (s.kind === "cell" && s.documentId && s.columnId) {
+      return `${base}?cell=${s.documentId}:${s.columnId}`;
     }
     return base;
   };
@@ -505,9 +553,13 @@ export function ChatMainPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
-              <p className="text-sm leading-relaxed text-ink">
-                <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>
-              </p>
+              {source.kind === "cell" ? (
+                <ChatCellSourceDetail source={source} />
+              ) : (
+                <p className="text-sm leading-relaxed text-ink">
+                  <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>
+                </p>
+              )}
             </div>
             {sourceLink(source) && (
               <div className="p-4 border-t border-border shrink-0">

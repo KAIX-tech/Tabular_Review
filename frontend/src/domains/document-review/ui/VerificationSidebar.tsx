@@ -1,8 +1,15 @@
 "use client";
 
-import { AlertCircle, FileText, X } from "@/shared/ui/icons";
-import React, { useEffect, useState, useRef } from "react";
+import { FileText, Loader2, X } from "@/shared/ui/icons";
+import type React from "react";
+import { useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useDocumentContent } from "../api/documents.hooks";
+import { useQuoteHighlight } from "../lib/use-quote-highlight";
 import type { Column, DocumentFile, ExtractionCell } from "../model/types";
+import { CellDetailCard } from "./CellDetailCard";
+import { DOC_MD_COMPONENTS } from "./DocumentViewer";
 
 interface VerificationSidebarProps {
   cell?: ExtractionCell | null;
@@ -14,6 +21,27 @@ interface VerificationSidebarProps {
   onExpand: (expanded: boolean) => void;
 }
 
+/** Decode the legacy mock-mode base64 payload (real mode fetches by id). */
+function decodeBase64Content(content: string): string {
+  try {
+    const clean = content.replace(/^data:.*;base64,/, "");
+    const binary = atob(clean);
+    try {
+      return decodeURIComponent(escape(binary));
+    } catch {
+      return binary;
+    }
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Cell verification panel (A-4): cell detail on the left (shared
+ * CellDetailCard), and — when expanded — the document markdown on the right
+ * with the cited passage highlighted, using the same viewer/highlight
+ * convention as every other 원문 참조 surface.
+ */
 export const VerificationSidebar: React.FC<VerificationSidebarProps> = ({
   cell,
   document,
@@ -22,246 +50,92 @@ export const VerificationSidebar: React.FC<VerificationSidebarProps> = ({
   isExpanded,
   onExpand,
 }) => {
-  const [decodedContent, setDecodedContent] = useState<string>("");
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (document) {
-      // Decode Base64 content (which is now always Markdown/Text from App.tsx)
-      try {
-        const cleanContent = document.content.replace(/^data:.*;base64,/, "");
-        const binaryString = atob(cleanContent);
-        try {
-          // Handle UTF-8 characters properly
-          const decoded = decodeURIComponent(escape(binaryString));
-          setDecodedContent(decoded);
-        } catch (e) {
-          // Fallback for simple ASCII or already decoded parts
-          setDecodedContent(binaryString);
-        }
-      } catch (e) {
-        console.error("Decoding error", e);
-        setDecodedContent("Unable to display document content.");
-      }
-    }
-  }, [document]);
-
-  // Auto-scroll to highlighted text when expanded or cell changes
-  useEffect(() => {
-    if (isExpanded && cell?.quote) {
-      // Small timeout to ensure DOM is rendered
-      const timer = setTimeout(() => {
-        if (scrollContainerRef.current) {
-          const mark = scrollContainerRef.current.querySelector("mark");
-          if (mark) {
-            mark.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isExpanded, cell, decodedContent]);
-
-  const handleCitationClick = () => {
-    onExpand(true);
-    // Scroll handled by useEffect
-  };
-
-  // Helper to render text with highlight (HTML/TXT)
-  const renderHighlightedContent = () => {
-    if (!cell || !cell.quote || !decodedContent) {
-      return (
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-          {decodedContent}
-        </div>
-      );
-    }
-
-    const quote = cell.quote.trim();
-    if (!quote)
-      return (
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-          {decodedContent}
-        </div>
-      );
-
-    // Robust Fuzzy Matcher
-    // 1. Escape regex characters in the quote
-    const escapedQuote = quote.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    // 2. Replace whitespace with a flexible pattern that matches:
-    //    - spaces
-    //    - newlines
-    //    - common markdown characters that might appear in source but not quote (like **, _, #)
-    const loosePattern = escapedQuote.replace(/\s+/g, "[\\s\\W]*");
-
-    // 3. Create regex with capturing group to split and keep delimiters
-    const looseQuoteRegex = new RegExp(`(${loosePattern})`, "gi");
-
-    const parts = decodedContent.split(looseQuoteRegex);
-
-    if (parts.length === 1) {
-      return (
-        <div className="relative">
-          <div className="bg-red-50 border border-red-200 rounded p-2 mb-4 text-xs text-red-700 flex items-center gap-2 sticky top-0 z-10">
-            <AlertCircle className="w-3 h-3" />
-            Exact quote not found. Showing full text.
-          </div>
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-            {decodedContent}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-        {parts.map((part, i) => {
-          // Check if this part matches the loose pattern
-          // Since we split by capturing group, matches will be at odd indices (1, 3, 5...)
-          // IF the first part is empty (match at start), then matches are 1, 3...
-          // IF the first part is text, matches are 1, 3...
-          // Basically, split(regexWithCapture) returns [pre, match, post]
-          const isMatch = looseQuoteRegex.test(part);
-          // Reset regex lastIndex because test() advances it if global
-          looseQuoteRegex.lastIndex = 0;
-
-          if (isMatch) {
-            return (
-              <mark
-                key={i}
-                className="bg-primary/15 text-ink px-0.5 rounded-sm border-b-2 border-primary/40 font-medium"
-              >
-                {part}
-              </mark>
-            );
-          }
-          return <React.Fragment key={i}>{part}</React.Fragment>;
-        })}
-      </div>
-    );
-  };
-
-  const renderAnswerPanel = () => (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white z-10">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-              {cell ? "Analyst Review" : "Document Preview"}
-            </span>
-            <span
-              className="text-sm font-semibold text-slate-900 truncate max-w-[200px]"
-              title={document?.name}
-            >
-              {document?.name}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      {cell && column ? (
-        <div className="p-6 flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-100 px-2 py-1 rounded">
-              {column.name}
-            </span>
-            <span
-              className={`text-[10px] px-2.5 py-1 rounded-full font-bold border ${
-                cell.confidence === "High"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : cell.confidence === "Medium"
-                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-red-50 text-red-700 border-red-200"
-              }`}
-            >
-              {cell.confidence} Confidence
-            </span>
-          </div>
-
-          <div className="mb-8">
-            <div className="text-lg text-slate-900 leading-relaxed font-medium">{cell.value}</div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                AI Reasoning
-              </h4>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <p className="text-sm text-slate-600 leading-relaxed inline">{cell.reasoning}</p>
-
-                {/* Inline Citation Chip */}
-                {cell.quote && (
-                  <button
-                    onClick={handleCitationClick}
-                    className="inline-flex items-center justify-center ml-1.5 align-middle px-1.5 py-0.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-[10px] font-bold rounded cursor-pointer border border-indigo-200 hover:border-indigo-300 transition-all transform active:scale-95"
-                    title="View in Document"
-                  >
-                    {cell.page ? `p.${cell.page}` : "Src"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="p-6 flex flex-col items-center justify-center flex-1 text-center">
-          <FileText className="w-12 h-12 text-slate-200 mb-4" />
-          <p className="text-sm text-slate-500">Document Preview Mode</p>
-          {!isExpanded && (
-            <button
-              onClick={() => onExpand(true)}
-              className="mt-4 text-indigo-600 text-xs font-bold hover:underline"
-            >
-              Open Document Viewer
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+  // Real mode: document.content is empty — fetch markdown by id. Mock mode:
+  // decode the inline base64 payload.
+  const inlineContent = document?.content ? decodeBase64Content(document.content) : "";
+  const { data: fetchedContent, isLoading } = useDocumentContent(
+    document?.id ?? "",
+    isExpanded && !!document && !inlineContent,
   );
+  const markdown = inlineContent || fetchedContent || "";
 
-  const renderDocumentPanel = () => (
-    <div className="h-full flex flex-col bg-slate-100 border-l border-slate-200 overflow-hidden">
-      <div className="flex-1 bg-slate-200 relative flex flex-col min-h-0">
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-8 md:p-12 scroll-smooth">
-          <div className="max-w-[800px] w-full bg-white shadow-lg min-h-[800px] p-8 md:p-12 relative mx-auto text-left">
-            {renderHighlightedContent()}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const articleRef = useRef<HTMLElement>(null);
+  useQuoteHighlight(articleRef, isExpanded ? markdown : null, cell?.quote);
 
   if (!document) return null;
 
   return (
     <div className="h-full w-full flex">
-      {/* Left Panel (Analyst) - Always Visible */}
+      {/* Left panel: cell detail (shared card) */}
       <div
-        className={`${isExpanded ? "w-[400px]" : "w-full"} flex-shrink-0 transition-all duration-300 z-20 shadow-xl`}
+        className={`${isExpanded ? "w-[400px]" : "w-full"} flex-shrink-0 transition-all duration-300 z-20 flex flex-col bg-surface border-r border-border`}
       >
-        {renderAnswerPanel()}
+        <header className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="w-4 h-4 text-ink-3 shrink-0" strokeWidth={1.75} />
+            <div className="flex flex-col min-w-0">
+              <span className="tr-label">{cell ? "셀 검증" : "문서 미리보기"}</span>
+              <span className="text-sm font-medium text-ink truncate" title={document.name}>
+                {document.name}
+              </span>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="tr-icon-btn" title="닫기">
+            <X className="w-4 h-4" />
+          </button>
+        </header>
+
+        {cell && column ? (
+          <div className="p-5 flex-1 overflow-y-auto">
+            <CellDetailCard
+              data={{
+                columnName: column.name,
+                columnType: column.type,
+                value: cell.value,
+                valueJson: cell.valueJson,
+                confidence: cell.confidence ?? null,
+                reasoning: cell.reasoning,
+                quote: cell.quote,
+                page: cell.page || null,
+              }}
+              onOpenSource={() => onExpand(true)}
+            />
+          </div>
+        ) : (
+          <div className="p-6 flex flex-col items-center justify-center flex-1 text-center gap-3">
+            <FileText className="w-10 h-10 text-border-strong" strokeWidth={1.5} />
+            <p className="text-sm text-ink-3">문서 미리보기</p>
+            {!isExpanded && (
+              <button
+                type="button"
+                onClick={() => onExpand(true)}
+                className="tr-btn tr-btn-secondary h-8 text-xs"
+              >
+                문서 열기
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Right Panel (Document) - Conditionally Visible */}
+      {/* Right panel: document markdown with the cited passage highlighted */}
       {isExpanded && (
-        <div className="flex-1 animate-in slide-in-from-right duration-300 min-w-0">
-          {renderDocumentPanel()}
+        <div className="flex-1 min-w-0 flex flex-col bg-canvas">
+          <div className="flex-1 overflow-y-auto p-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full text-ink-3">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : markdown ? (
+              <article ref={articleRef} className="max-w-[800px] mx-auto break-words">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={DOC_MD_COMPONENTS}>
+                  {markdown}
+                </ReactMarkdown>
+              </article>
+            ) : (
+              <p className="text-sm text-ink-3 text-center mt-10">표시할 내용이 없습니다.</p>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type CreateRunInput,
   createRun,
+  getCell,
   getRun,
   listCells,
   reviewCell,
@@ -10,7 +11,17 @@ import {
 export const cellKeys = {
   byDb: (dbId: string) => ["cells", dbId] as const,
   run: (runId: string) => ["run", runId] as const,
+  detail: (cellId: string) => ["cell", cellId] as const,
 };
+
+/** One cell with sources (chat drawer 추출값 참조). */
+export function useCellDetail(cellId: string | null) {
+  return useQuery({
+    queryKey: cellKeys.detail(cellId ?? ""),
+    queryFn: () => getCell(cellId as string),
+    enabled: !!cellId,
+  });
+}
 
 /** Grid cells. Polls every 2s while a run is active. */
 export function useCells(documentDbId: string, active: boolean) {
