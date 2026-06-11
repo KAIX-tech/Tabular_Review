@@ -21,6 +21,7 @@ import {
   ExtractionCell,
   type ExtractionResult,
 } from "../model/types";
+import { CellValue } from "./CellValue";
 
 interface DataGridProps {
   documents: DocumentFile[];
@@ -163,16 +164,19 @@ export const DataGrid: React.FC<DataGridProps> = ({
 
     const isSelected = selectedCell?.docId === docId && selectedCell?.colId === colId;
 
+    const columnType = columns.find((c) => c.id === colId)?.type ?? "text";
+
     return (
       <div
         className={`flex items-center justify-between w-full h-full ${isTextWrapEnabled ? "items-start py-1" : ""}`}
       >
-        <span
-          className={`text-sm ${isSelected ? "font-medium" : ""} ${isTextWrapEnabled ? "whitespace-pre-wrap break-words" : "truncate max-w-[180px]"}`}
-          title={cell.value}
-        >
-          {cell.value}
-        </span>
+        <CellValue
+          type={columnType}
+          value={cell.value}
+          valueJson={cell.valueJson}
+          wrap={!!isTextWrapEnabled}
+          selected={isSelected}
+        />
         <div className={`flex items-center gap-1 shrink-0 ${isTextWrapEnabled ? "mt-1" : ""}`}>
           {cell.extractionMethod === "retrieval_fallback" && (
             <span

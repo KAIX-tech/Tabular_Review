@@ -29,6 +29,7 @@ function toCell(dto: CellDto): ExtractionCell {
   return {
     id: dto.id,
     value: dto.value ?? "",
+    valueJson: dto.valueJson ?? undefined,
     // Preserve unknown confidence (don't downgrade null to "Low").
     confidence: dto.confidence != null ? CONFIDENCE[dto.confidence] : undefined,
     quote: src?.quote ?? "",

@@ -147,6 +147,35 @@ async def test_full_loop_steps_sources_title(service: ChatService) -> None:
     assert detail.messages[-1].steps and detail.messages[-1].steps[0].tool == "search_chunks"
 
 
+async def test_bad_tool_argument_recovers_instead_of_failing(service: ChatService) -> None:
+    """A DB *name* passed where a UUID belongs must not kill the run.
+
+    The guarded tool returns an instructive {"error": …} payload, the loop
+    continues, and the model's corrected second call completes the answer.
+    """
+    model = FakeToolCallingModel(
+        responses=[
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "list_columns", "args": {"document_db_id": "test"}, "id": "c1"}
+                ],
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "search_chunks", "args": {"query": "q"}, "id": "c2"}],
+            ),
+            AIMessage(content=f"답변 [chunk:{CHUNK_ID}]"),
+        ]
+    )
+    session = await service.create_session(scope_document_db_id=None)
+    events = [e async for e in _runner(model, service).run(session.id, "질문")]
+
+    steps = [e for e in events if isinstance(e, StepEvent)]
+    assert [s.step.tool for s in steps] == ["list_columns", "search_chunks"]
+    assert isinstance(events[-1], AnswerEvent)  # run completed despite the bad arg
+
+
 async def test_failure_preserves_user_message_only(service: ChatService) -> None:
     session = await service.create_session(scope_document_db_id=None)
     runner = _runner(ExplodingModel(responses=[]), service)
