@@ -1,12 +1,12 @@
 """Port for text embedding (generic infra context).
 
-Consumers (ingestion, extraction, chat) depend on this abstraction; concrete
-adapters (Gemini in dev, BGE-M3 on-prem) live in infrastructure. All adapters
-MUST emit vectors of `dimension` length so they share one pgvector column
+Consumers (ingestion, extraction, chat) depend on this abstraction; the concrete
+adapter (BGE-M3 via HF TEI) lives in infrastructure. All adapters MUST emit
+vectors of `dimension` length so they share one pgvector column
 (docs/domain-design.md §2.5, §2.12).
 
 Documents and queries are embedded separately because retrieval models score
-query-vs-document pairs asymmetrically (e.g. Gemini task types).
+query-vs-document pairs asymmetrically.
 """
 
 from __future__ import annotations

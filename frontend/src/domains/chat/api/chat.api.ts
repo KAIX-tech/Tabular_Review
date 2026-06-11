@@ -8,8 +8,7 @@ import type { Column, DocumentFile, ExtractionResult } from "@/domains/document-
 
 interface ChatHistoryEntry {
   role: "user" | "model";
-  parts?: { text: string }[];
-  text?: string;
+  text: string;
 }
 
 export const analyzeDataWithChat = async (
@@ -52,7 +51,7 @@ Instructions:
   try {
     const chatHistory: VllmMessage[] = history.map((m) => ({
       role: m.role === "model" ? "assistant" : "user",
-      content: normalizeOpenAiContent(m.parts?.[0]?.text || m.text || ""),
+      content: normalizeOpenAiContent(m.text || ""),
     }));
 
     const response = await callVllmChat({

@@ -47,9 +47,7 @@ async def create_run(
     settings: Settings = Depends(get_settings),
 ) -> ExtractionRunResponse:
     await db_service.get_document_db(db_id)  # 404 if the DB is missing
-    default_model = (
-        settings.gemini_llm_model if settings.ai_provider == "gemini" else settings.vllm_model
-    )
+    default_model = settings.active_llm_model
     run = await service.create_run(
         db_id,
         document_ids=payload.document_ids,

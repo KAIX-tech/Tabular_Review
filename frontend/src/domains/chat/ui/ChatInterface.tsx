@@ -49,10 +49,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsTyping(true);
 
     try {
-      // Format history for Gemini
       const history = messages.map(m => ({
         role: m.role,
-        parts: [{ text: m.text }]
+        text: m.text
       }));
 
       const responseText = await analyzeDataWithChat(

@@ -37,8 +37,8 @@ class TextGenerationPort(ABC):
     """Higher-level structured generation (used by extraction, later chat).
 
     Distinct from the raw proxy `LlmClient`: callers describe the desired JSON
-    shape in the prompt and receive a parsed object. Adapters: Gemini (dev),
-    vLLM/GLM (on-prem).
+    shape in the prompt and receive a parsed object. Adapter: vLLM/GLM
+    (on-prem) or OpenRouter GLM (dev), both OpenAI-compatible.
     """
 
     @abstractmethod

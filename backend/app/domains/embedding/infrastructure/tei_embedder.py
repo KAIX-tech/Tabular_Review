@@ -4,8 +4,8 @@ Calls a TEI server's ``POST /embed`` endpoint (https://github.com/huggingface/
 text-embeddings-inference). TEI hosts a single model, so no model name is sent;
 ``normalize=true`` returns L2-normalized vectors suited to cosine distance.
 
-Used when AI_PROVIDER=onprem. Vectors must be `dimension` long to fit the shared
-pgvector column (docs/domain-design.md §2.5, §2.12).
+The single embedding adapter (BGE-M3 / 1024d). Vectors must be `dimension` long
+to fit the shared pgvector column (docs/domain-design.md §2.5, §2.12).
 """
 
 from __future__ import annotations
