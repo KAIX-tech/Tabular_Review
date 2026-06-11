@@ -95,3 +95,17 @@ class DocumentChunkRepository(ABC):
         """Top-`limit` chunks of a document by cosine similarity to `embedding`
         (retrieval fallback for long documents)."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def search_scoped(
+        self,
+        embedding: list[float],
+        *,
+        document_db_id: UUID | None = None,
+        document_id: UUID | None = None,
+        limit: int,
+    ) -> list[DocumentChunk]:
+        """Top-`limit` chunks by cosine similarity, optionally scoped to one
+        DocumentDB or one document (chat agent `search_chunks`; docs §2.13).
+        No scope = global search across every DB."""
+        raise NotImplementedError

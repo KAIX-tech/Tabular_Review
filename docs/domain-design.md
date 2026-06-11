@@ -803,14 +803,14 @@ create table chat_source (
 
 **구현 현황**: 백엔드는 `document_db` / `ingestion` / `extraction`(+ 인프라
 `document_conversion` / `llm` / `embedding` / `storage`) 컨텍스트와 Alembic 마이그레이션이
-구현되어 라우터까지 배선됨. `chat` 컨텍스트는 **세션 CRUD(PR-A) 구현 완료**, 에이전트+SSE
-(PR-B)는 미착수. `identity`는 문서상 정의만 존재. 프론트는 `(shell)` 라우트로 챗 페이지·DocumentDB 목록/그리드가 있고 도메인별
-mock 토글(`ENV.mocks.*`)로 real API 전환 중.
+구현되어 라우터까지 배선됨. `chat` 컨텍스트는 **세션 CRUD(PR-A) + 에이전트/SSE(PR-B) 백엔드
+구현 완료**(온프렘 LLM E2E는 운영 검증 대기), 프론트 통합(PR-C)은 미착수. `identity`는
+문서상 정의만 존재. 프론트는 `(shell)` 라우트로 챗 페이지·DocumentDB 목록/그리드가 있고
+도메인별 mock 토글(`ENV.mocks.*`)로 real API 전환 중(챗은 아직 mock).
 
-1. **최우선 — `chat` 컨텍스트(Agentic Search) 구현.** 제품의 1차 표면(§9 #18). 구현 계획은
-   [phase-4-chat-plan.md](phase-4-chat-plan.md) (PR-A 세션 CRUD → PR-B 에이전트+SSE → PR-C 프론트).
-2. **챗-퍼스트 유저 표면 완성** — 에이전트 스텝 라이브 표시, 청크/셀 출처 칩, 서버 세션
-   (화면 기준: [phase-4-chat-plan.md](phase-4-chat-plan.md) §4.1). 그리드는 Admin 표면으로 유지.
+1. **최우선 — 챗 프론트 통합(PR-C).** 세션 서버 전환 + SSE 소비(스텝 타임라인) + 출처 칩
+   점프 — [phase-4-chat-plan.md](phase-4-chat-plan.md) §4·§4.1. 그리드는 Admin 표면으로 유지.
+2. **온프렘 LLM E2E 검증** — 운영 pull 후 대표 질의 2종 스모크(phase-4 §6).
 3. (후속) 리랭커(BGE-Reranker-V2-M3) 활성화, `query_cells` 서버측 필터/집계 고도화,
    읽기전용 그리드 의미검색·폴백 셀 "부분 컨텍스트" 배지(§2.12),
    `identity`(인증/권한)·법률 특화 모델(매터/보안등급/ACL — §9 오픈 퀘스천).

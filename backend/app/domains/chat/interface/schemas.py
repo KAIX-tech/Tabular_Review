@@ -13,6 +13,8 @@ from __future__ import annotations
 from typing import Any, Literal
 from uuid import UUID
 
+from pydantic import Field as PydanticField
+
 from app.core.schemas import CamelModel, IsoDatetime
 from app.domains.chat.domain.models import (
     ChatMessage,
@@ -30,6 +32,10 @@ class ChatSessionCreate(CamelModel):
 
 class ChatSessionUpdate(CamelModel):
     title: str | None = None
+
+
+class ChatMessageCreate(CamelModel):
+    content: str = PydanticField(min_length=1)
 
 
 class ChatStepResponse(CamelModel):
@@ -51,6 +57,9 @@ class ChatSourceResponse(CamelModel):
     quote: str
     page: int | None
     rank: int
+    # Display metadata (joined on read / carried from tool results after a run).
+    document_name: str | None = None
+    column_name: str | None = None
 
     @classmethod
     def from_domain(cls, source: ChatSource) -> "ChatSourceResponse":
@@ -64,6 +73,8 @@ class ChatSourceResponse(CamelModel):
             quote=source.quote,
             page=source.page,
             rank=source.rank,
+            document_name=source.document_name,
+            column_name=source.column_name,
         )
 
 

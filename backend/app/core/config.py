@@ -73,6 +73,16 @@ class Settings(BaseSettings):
     # Default = GLM (65k).
     llm_context_tokens: int = Field(default=65000, alias="LLM_CONTEXT_TOKENS")
 
+    # --- Chat agent (Agentic Search; docs/phase-4-chat-plan.md D9-D11) ---
+    # Max tool-call rounds per question (LangGraph recursion_limit ≈ 2×steps+1).
+    chat_max_steps: int = Field(default=8, alias="CHAT_MAX_STEPS")
+    # Per-tool-result token cap; results are clipped with a truncated marker (D11).
+    chat_tool_result_max_tokens: int = Field(default=4000, alias="CHAT_TOOL_RESULT_MAX_TOKENS")
+    # Max citations per assistant message (D10).
+    chat_max_sources: int = Field(default=5, alias="CHAT_MAX_SOURCES")
+    # Default top-k for the search_chunks tool.
+    chat_search_k: int = Field(default=8, alias="CHAT_SEARCH_K")
+
     # --- Embedding (HF Text-Embeddings-Inference; BGE-M3) ---
     # Single embedding adapter. The TEI server hosts one model, so only the base
     # URL (+ optional bearer key) is needed; vectors must be `embedding_dim`.

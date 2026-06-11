@@ -19,12 +19,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine, create_sessionmaker
 from app.core.logging import configure_logging, get_logger
+from app.domains.chat.application.agent import ChatAgentRunner
 from app.domains.chat.application.service import ChatService
 from app.domains.chat.domain.ports import (
+    AgentRunError,
     ChatSessionNotFoundError,
     ScopeDocumentDbNotFoundError,
+    SessionBusyError,
 )
 from app.domains.chat.infrastructure.repositories import SqlAlchemyChatRepository
+from app.domains.chat.infrastructure.toolset import CatalogAgentToolset
 from app.domains.chat.interface.router import router as chat_router
 from app.domains.document_conversion.application.service import DocumentConversionService
 from app.domains.document_conversion.domain.models import ConversionSettings, OcrSettings
@@ -90,6 +94,34 @@ def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
 
 def _build_chat_service(session: AsyncSession) -> ChatService:
     return ChatService(SqlAlchemyChatRepository(session))
+
+
+def _build_chat_model(settings: Settings):
+    """LangChain chat model for the agent — same target as `_openai_llm_target`.
+
+    Chat is the only LangChain path; extraction keeps `generate_json`
+    (docs/domain-design.md §9 #14, plan D2). Imported here lazily so module
+    import stays light for non-agent tooling.
+    """
+    from langchain_openai import ChatOpenAI
+
+    base_url, api_key, model, timeout = _openai_llm_target(settings)
+    return ChatOpenAI(
+        base_url=base_url,
+        api_key=api_key or "EMPTY",
+        model=model,
+        timeout=timeout,
+        temperature=0,
+    )
+
+
+def _build_chat_callbacks(settings: Settings) -> list:
+    """Langfuse LangChain callback for agent tracing (uses the global client)."""
+    if not settings.langfuse_enabled:
+        return []
+    from langfuse.langchain import CallbackHandler
+
+    return [CallbackHandler()]
 
 
 def _build_extraction_service(session: AsyncSession) -> ExtractionService:
@@ -271,6 +303,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.extraction_service_factory = _build_extraction_service
     app.state.chat_service_factory = _build_chat_service
 
+    # Chat agent (Agentic Search): one chat model + callbacks per process, a
+    # runner per request session; busy-set guards one run per session (D9).
+    chat_model = _build_chat_model(settings)
+    chat_callbacks = _build_chat_callbacks(settings)
+    embedder = app.state.embedder
+
+    def _build_chat_agent_runner(session: AsyncSession) -> ChatAgentRunner:
+        toolset = CatalogAgentToolset(
+            db_repo=SqlAlchemyDocumentDbRepository(session),
+            column_repo=SqlAlchemyDocumentColumnRepository(session),
+            document_repo=SqlAlchemyDocumentRepository(session),
+            chunk_repo=SqlAlchemyDocumentChunkRepository(session),
+            cell_repo=SqlAlchemyCellRepository(session),
+            embedder=embedder,
+            tool_result_max_tokens=settings.chat_tool_result_max_tokens,
+            search_k=settings.chat_search_k,
+        )
+        return ChatAgentRunner(
+            service=_build_chat_service(session),
+            toolset=toolset,
+            chat_model=chat_model,
+            max_steps=settings.chat_max_steps,
+            max_sources=settings.chat_max_sources,
+            callbacks=chat_callbacks,
+        )
+
+    app.state.chat_agent_runner_factory = _build_chat_agent_runner
+    app.state.chat_active_sessions = set()
+
     app.include_router(conversion_router)
     app.include_router(llm_router)
     app.include_router(document_db_router)
@@ -291,6 +352,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(InvalidColumnOrderError)
     async def _invalid_order_handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc) or "Invalid order"})
+
+    @app.exception_handler(SessionBusyError)
+    async def _session_busy_handler(_request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc) or "Session busy"})
+
+    @app.exception_handler(AgentRunError)
+    async def _agent_run_handler(_request: Request, exc: Exception) -> JSONResponse:
+        # Non-streaming fallback path only; the SSE path emits `event: error`.
+        return JSONResponse(
+            status_code=502, content={"detail": str(exc) or "Agent run failed"}
+        )
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:
