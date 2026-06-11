@@ -83,9 +83,12 @@ const CHAT_MD_COMPONENTS: Components = {
   td: ({ children }) => <td className="border border-border px-2 py-1 align-top">{children}</td>,
 };
 
-function ChatMarkdown({ content }: { content: string }) {
+function ChatMarkdown({ content, animated = false }: { content: string; animated?: boolean }) {
+  // `animated` turns on per-block fade-in (globals.css .chat-fade-blocks):
+  // blocks already in the DOM keep their nodes across streaming re-renders,
+  // so only newly arrived lines animate.
   return (
-    <div className="break-words">
+    <div className={`break-words ${animated ? "chat-fade-blocks" : ""}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={CHAT_MD_COMPONENTS}>
         {content}
       </ReactMarkdown>
@@ -137,7 +140,7 @@ function StepTimeline({ steps }: { steps: ChatStep[] }) {
       {steps.map((s, i) => {
         const isLast = i === steps.length - 1;
         return (
-          <div key={s.step} className="flex items-center gap-2 text-xs text-ink-2">
+          <div key={s.step} className="kalex-fade-in flex items-center gap-2 text-xs text-ink-2">
             {isLast ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
             ) : (
@@ -421,7 +424,7 @@ export function ChatMainPage() {
                 )}
                 {streaming && pending && pending.draft !== "" && (
                   <div>
-                    <ChatMarkdown content={stripDraftMarkers(pending.draft)} />
+                    <ChatMarkdown content={stripDraftMarkers(pending.draft)} animated />
                     <span className="inline-block w-[2px] h-4 ml-0.5 align-text-bottom bg-ink-3 animate-pulse" />
                   </div>
                 )}
