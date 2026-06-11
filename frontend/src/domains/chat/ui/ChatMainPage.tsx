@@ -263,17 +263,23 @@ function StepTimeline({ steps }: { steps: ChatStep[] }) {
           </div>
         );
       })}
-      {steps.length === 0 && (
-        <div className="flex items-center gap-1">
-          {[0, 150, 300].map((d) => (
-            <span
-              key={d}
-              className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce"
-              style={{ animationDelay: `${d}ms` }}
-            />
-          ))}
-        </div>
-      )}
+      {steps.length === 0 && <GeneratingDots />}
+    </div>
+  );
+}
+
+/** Symbolic "생성 중" indicator — three soft pulsing dots (shared visual
+ *  language with the pre-step wait state; replaces the old caret bar). */
+function GeneratingDots({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex items-center gap-1 ${className}`}>
+      {[0, 150, 300].map((d) => (
+        <span
+          key={d}
+          className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce"
+          style={{ animationDelay: `${d}ms` }}
+        />
+      ))}
     </div>
   );
 }
@@ -619,7 +625,7 @@ export function ChatMainPage() {
                 {streaming && pending && visibleDraft !== "" && (
                   <div>
                     <ChatMarkdown content={visibleDraft} animated />
-                    <span className="inline-block w-[2px] h-4 ml-0.5 align-text-bottom bg-ink-3 animate-pulse" />
+                    <GeneratingDots className="mt-2" />
                   </div>
                 )}
                 {pending?.error && (
