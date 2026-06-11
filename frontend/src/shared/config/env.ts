@@ -5,13 +5,13 @@
  * the reads here keeps `process.env` access out of feature code.
  */
 
-// "false" => real API; anything else (incl. unset) => mocks. Per-domain flags
-// fall back to the global one, so a backend can be switched on domain by domain
-// as each context lands (e.g. document_db is real while chat/grid stay mocked).
+// Every context (document_db / review / chat) is backed by the real API, so
+// mocks are strictly OPT-IN for offline UI work: set NEXT_PUBLIC_USE_MOCKS=true
+// (or a per-domain flag) explicitly. Unset => real backend.
 const parseFlag = (value: string | undefined, fallback: boolean): boolean =>
   value === undefined || value === "" ? fallback : value !== "false";
 
-const globalMocks = process.env.NEXT_PUBLIC_USE_MOCKS !== "false";
+const globalMocks = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
 
 export const ENV = {
   apiUrl: process.env.NEXT_PUBLIC_API_URL,
