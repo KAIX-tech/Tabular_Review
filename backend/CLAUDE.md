@@ -90,7 +90,8 @@ injection on proxy.
 All env vars are declared in `core/config.py` (`Settings`, pydantic-settings).
 Never read `os.environ` outside it. Key vars: `VLLM_BASE_URL`, `VLLM_API_KEY`
 (`EMPTY` ⇒ no auth header), `VLLM_MODEL`, `DOCLING_OCR_*`, `DOCLING_PDF_BACKEND`,
-`DOCLING_HF_DISABLE_SSL_VERIFY`, `CORS_ORIGINS`. See `../.env.example`.
+`DOCLING_HF_DISABLE_SSL_VERIFY`, `FRONTEND_HOST` (CORS allow-origin is derived
+from it — no CORS_ORIGINS variable). See `../.env.example`.
 
 ## Dependencies
 

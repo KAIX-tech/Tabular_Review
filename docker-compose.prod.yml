@@ -43,7 +43,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_API_URL: ${BACKEND_HOST}
         NEXT_PUBLIC_LLM_MODEL: ${NEXT_PUBLIC_LLM_MODEL}
         NEXT_PUBLIC_LLM_TIMEOUT_MS: ${NEXT_PUBLIC_LLM_TIMEOUT_MS}
     container_name: tabular-review-frontend

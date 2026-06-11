@@ -150,17 +150,25 @@ class Settings(BaseSettings):
     docling_hf_trust_env: bool = Field(default=False, alias="DOCLING_HF_TRUST_ENV")
 
     # --- HTTP / CORS ---
-    cors_origins: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:5173",
-            "http://10.10.190.4:13001",
-        ],
-        alias="CORS_ORIGINS",
-    )
+    # The browser-facing frontend origin (scheme://host:port). CORS is derived
+    # from this — no separate CORS_ORIGINS variable.
+    frontend_host: str = Field(default="http://localhost:13002", alias="FRONTEND_HOST")
 
-    @field_validator("docling_ocr_langs", "cors_origins", mode="before")
+    @property
+    def cors_origins(self) -> list[str]:
+        """Allowed browser origins: FRONTEND_HOST + local dev conveniences.
+
+        The localhost entries keep non-docker `pnpm dev` (:3000) and the dev
+        compose frontend (:13002) working without extra configuration.
+        """
+        origins = [
+            self.frontend_host.rstrip("/"),
+            "http://localhost:3000",
+            "http://localhost:13002",
+        ]
+        return list(dict.fromkeys(origins))
+
+    @field_validator("docling_ocr_langs", mode="before")
     @classmethod
     def _parse_csv_fields(cls, value: str | list[str]) -> list[str]:
         return _split_csv(value)
