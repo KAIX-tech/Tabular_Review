@@ -14,7 +14,12 @@ import pytest
 from langchain_core.language_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 
-from app.domains.chat.application.agent import AnswerEvent, ChatAgentRunner, StepEvent
+from app.domains.chat.application.agent import (
+    AnswerEvent,
+    ChatAgentRunner,
+    DeltaEvent,
+    StepEvent,
+)
 from app.domains.chat.application.service import ChatService
 from app.domains.chat.domain.ports import AgentRunError
 from tests.chat.fake_repository import FakeChatRepository
@@ -23,10 +28,43 @@ CHUNK_ID = str(uuid4())
 
 
 class FakeToolCallingModel(FakeMessagesListChatModel):
-    """Scripted chat model that accepts tool binding (returns itself)."""
+    """Scripted chat model that accepts tool binding and streams tokens.
+
+    `_stream` mirrors the parent's response cycling but emits AIMessageChunks
+    (8-char pieces for text, one chunk for tool calls) so LangGraph's
+    stream_mode="messages" produces delta events like a real streaming model.
+    """
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "FakeToolCallingModel":
         return self
+
+    def _stream(self, messages: Any, stop: Any = None, run_manager: Any = None, **kwargs: Any):
+        import json
+
+        from langchain_core.messages import AIMessageChunk
+        from langchain_core.outputs import ChatGenerationChunk
+
+        response = self.responses[self.i]
+        self.i = self.i + 1 if self.i < len(self.responses) - 1 else 0
+        if getattr(response, "tool_calls", None):
+            chunk = AIMessageChunk(
+                content="",
+                tool_call_chunks=[
+                    {
+                        "name": call["name"],
+                        "args": json.dumps(call["args"]),
+                        "id": call["id"],
+                        "index": index,
+                        "type": "tool_call_chunk",
+                    }
+                    for index, call in enumerate(response.tool_calls)
+                ],
+            )
+            yield ChatGenerationChunk(message=chunk)
+            return
+        text = response.content if isinstance(response.content, str) else ""
+        for start in range(0, len(text), 8):
+            yield ChatGenerationChunk(message=AIMessageChunk(content=text[start : start + 8]))
 
 
 class ExplodingModel(FakeToolCallingModel):
@@ -90,8 +128,12 @@ async def test_full_loop_steps_sources_title(service: ChatService) -> None:
     session = await service.create_session(scope_document_db_id=None)
     events = [e async for e in _runner(model, service).run(session.id, "MFN 비교해줘")]
 
-    assert [type(e).__name__ for e in events] == ["StepEvent", "AnswerEvent"]
-    step = events[0].step
+    # Token deltas (stream_mode="messages") arrive alongside steps; the exact
+    # chunking depends on the model, so assert presence + ordering invariants.
+    deltas = [e for e in events if isinstance(e, DeltaEvent)]
+    assert deltas, "expected token delta events for the generated text"
+    assert isinstance(events[-1], AnswerEvent)
+    step = next(e for e in events if isinstance(e, StepEvent)).step
     assert step.tool == "search_chunks" and step.summary == "원문 검색"
 
     answer = events[-1].message

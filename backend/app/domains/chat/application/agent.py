@@ -20,7 +20,7 @@ from uuid import UUID
 from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.tools import StructuredTool
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel, Field
@@ -209,6 +209,19 @@ class StepEvent:
 
 
 @dataclass
+class DeltaEvent:
+    """A token chunk of the model's text as it is generated (SSE `delta`).
+
+    Cosmetic stream only — the terminal AnswerEvent carries the authoritative
+    content (markers stripped, sources resolved) and replaces it. A StepEvent
+    after deltas means that text belonged to a tool-calling round; the client
+    discards the draft then.
+    """
+
+    text: str
+
+
+@dataclass
 class AnswerEvent:
     message: ChatMessage
 
@@ -238,7 +251,7 @@ class ChatAgentRunner:
 
     async def run(
         self, session_id: UUID, content: str
-    ) -> AsyncIterator[StepEvent | AnswerEvent]:
+    ) -> AsyncIterator[StepEvent | DeltaEvent | AnswerEvent]:
         detail = await self._service.get_session_detail(session_id)  # 404 first
         scope_id = detail.session.scope_document_db_id
 
@@ -274,9 +287,19 @@ class ChatAgentRunner:
         final_text = ""
         hit_step_limit = False
         try:
-            async for update in agent.astream(
-                {"messages": history}, config=config, stream_mode="updates"
+            # "updates" drives the authoritative loop (tool calls, final text);
+            # "messages" taps the model's token stream for the live-typing feel.
+            async for mode, payload in agent.astream(
+                {"messages": history}, config=config, stream_mode=["updates", "messages"]
             ):
+                if mode == "messages":
+                    chunk, _metadata = payload
+                    if isinstance(chunk, AIMessageChunk):
+                        token = _message_text(chunk)
+                        if token:
+                            yield DeltaEvent(token)
+                    continue
+                update = payload
                 for node_output in update.values():
                     for msg in (node_output or {}).get("messages", []):
                         if isinstance(msg, AIMessage):

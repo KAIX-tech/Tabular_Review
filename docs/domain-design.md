@@ -409,7 +409,8 @@ create_agent(model, tools=[6개], system_prompt, ...):
 
 ```text
 event: step    data: {step,tool,args,summary}      (도구 호출마다 N개)
-event: answer  data: {content, sources:[…]}        (최종)
+event: delta   data: {text}                        (모델 텍스트 토큰 스트림 — 표시용; answer가 최종본)
+event: answer  data: {content, sources:[…]}        (최종 — 마커 제거·출처 확정본, delta 누적분을 대체)
 event: done    data: {messageId}
 event: error   data: {message}                     (실패 시 — answer/done 대신; user 메시지는 보존)
 ```

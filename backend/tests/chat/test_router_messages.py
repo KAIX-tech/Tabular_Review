@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from app.domains.chat.application.agent import AnswerEvent, StepEvent
+from app.domains.chat.application.agent import AnswerEvent, DeltaEvent, StepEvent
 from app.domains.chat.application.service import ChatService
 from app.domains.chat.domain.models import (
     ChatMessage,
@@ -67,10 +67,14 @@ class FakeRunner:
     def __init__(self, fail: bool = False) -> None:
         self.fail = fail
 
-    async def run(self, session_id: UUID, content: str) -> AsyncIterator[StepEvent | AnswerEvent]:
+    async def run(
+        self, session_id: UUID, content: str
+    ) -> AsyncIterator[StepEvent | DeltaEvent | AnswerEvent]:
         yield StepEvent(ChatStep(step=1, tool="list_document_dbs", args={}, summary="DB 탐색"))
         if self.fail:
             raise AgentRunError("boom")
+        yield DeltaEvent("ACME_MSA ")
+        yield DeltaEvent("계약이 가장 유리합니다.")
         yield AnswerEvent(_assistant_message(session_id))
 
 
@@ -122,7 +126,7 @@ def test_sse_step_answer_done_sequence() -> None:
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     names = [name for name, _ in _events(response.text)]
-    assert names == ["step", "answer", "done"]
+    assert names == ["step", "delta", "delta", "answer", "done"]
     assert '"sources"' in response.text and '"documentName"' in response.text
 
 
