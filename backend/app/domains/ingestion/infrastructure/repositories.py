@@ -168,3 +168,22 @@ class SqlAlchemyDocumentChunkRepository(DocumentChunkRepository):
         )
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_to_chunk(o) for o in rows]
+
+    async def search_scoped(
+        self,
+        embedding: list[float],
+        *,
+        document_db_id: UUID | None = None,
+        document_id: UUID | None = None,
+        limit: int,
+    ) -> list[DocumentChunk]:
+        stmt = select(DocumentChunkOrm).where(DocumentChunkOrm.embedding.is_not(None))
+        if document_id is not None:
+            stmt = stmt.where(DocumentChunkOrm.document_id == document_id)
+        elif document_db_id is not None:
+            stmt = stmt.join(
+                DocumentOrm, DocumentChunkOrm.document_id == DocumentOrm.id
+            ).where(DocumentOrm.document_db_id == document_db_id)
+        stmt = stmt.order_by(DocumentChunkOrm.embedding.cosine_distance(embedding)).limit(limit)
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_to_chunk(o) for o in rows]

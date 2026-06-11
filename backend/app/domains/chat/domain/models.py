@@ -49,6 +49,9 @@ class ChatSourceDraft:
     quote: str
     page: int | None
     rank: int
+    # Display metadata for the SSE answer event; not stored (reads re-join it).
+    document_name: str | None = None
+    column_name: str | None = None
 
     def __post_init__(self) -> None:
         if self.chunk_id is None and self.cell_id is None:
@@ -57,7 +60,12 @@ class ChatSourceDraft:
 
 @dataclass
 class ChatSource:
-    """A persisted citation of an assistant message (§2.11)."""
+    """A persisted citation of an assistant message (§2.11).
+
+    ``document_name``/``column_name`` are display metadata filled by joins on
+    read (or carried over from tool results right after an agent run) — they
+    are not columns of chat_source.
+    """
 
     id: UUID
     message_id: UUID
@@ -67,6 +75,8 @@ class ChatSource:
     page: int | None
     rank: int
     created_at: datetime
+    document_name: str | None = None
+    column_name: str | None = None
 
 
 @dataclass
