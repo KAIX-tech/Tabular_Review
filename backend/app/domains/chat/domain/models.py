@@ -49,9 +49,14 @@ class ChatSourceDraft:
     quote: str
     page: int | None
     rank: int
-    # Display metadata for the SSE answer event; not stored (reads re-join it).
+    # Display/navigation metadata for the SSE answer event; not stored (reads
+    # re-join it). The frontend uses the ids to jump: chunk → document viewer,
+    # cell → the DB grid cell (plan §4.1).
     document_name: str | None = None
     column_name: str | None = None
+    document_id: UUID | None = None
+    document_db_id: UUID | None = None
+    column_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if self.chunk_id is None and self.cell_id is None:
@@ -77,6 +82,9 @@ class ChatSource:
     created_at: datetime
     document_name: str | None = None
     column_name: str | None = None
+    document_id: UUID | None = None
+    document_db_id: UUID | None = None
+    column_id: UUID | None = None
 
 
 @dataclass

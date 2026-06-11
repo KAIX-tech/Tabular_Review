@@ -79,14 +79,42 @@ class SourceRegistry:
     chunks: dict[str, dict[str, Any]] = field(default_factory=dict)
     cells: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-    def add_chunk(self, chunk_id: str, *, quote: str, page: int | None, document_name: str | None) -> None:
-        self.chunks[chunk_id] = {"quote": quote, "page": page, "document_name": document_name}
+    def add_chunk(
+        self,
+        chunk_id: str,
+        *,
+        quote: str,
+        page: int | None,
+        document_name: str | None,
+        document_id: str | None = None,
+        document_db_id: str | None = None,
+    ) -> None:
+        self.chunks[chunk_id] = {
+            "quote": quote,
+            "page": page,
+            "document_name": document_name,
+            "document_id": document_id,
+            "document_db_id": document_db_id,
+        }
 
-    def add_cell(self, cell_id: str, *, quote: str, column_name: str | None, document_name: str | None) -> None:
+    def add_cell(
+        self,
+        cell_id: str,
+        *,
+        quote: str,
+        column_name: str | None,
+        document_name: str | None,
+        document_id: str | None = None,
+        document_db_id: str | None = None,
+        column_id: str | None = None,
+    ) -> None:
         self.cells[cell_id] = {
             "quote": quote,
             "column_name": column_name,
             "document_name": document_name,
+            "document_id": document_id,
+            "document_db_id": document_db_id,
+            "column_id": column_id,
         }
 
 
@@ -119,6 +147,9 @@ def resolve_sources(
     """
     drafts: list[ChatSourceDraft] = []
 
+    def _uuid(value: str | None) -> UUID | None:
+        return UUID(value) if value else None
+
     def add(kind: str, source_id: str) -> None:
         if len(drafts) >= max_sources:
             return
@@ -132,6 +163,8 @@ def resolve_sources(
                     page=entry["page"],
                     rank=len(drafts) + 1,
                     document_name=entry["document_name"],
+                    document_id=_uuid(entry.get("document_id")),
+                    document_db_id=_uuid(entry.get("document_db_id")),
                 )
             )
         elif kind == "cell" and source_id in registry.cells:
@@ -145,6 +178,9 @@ def resolve_sources(
                     rank=len(drafts) + 1,
                     document_name=entry["document_name"],
                     column_name=entry["column_name"],
+                    document_id=_uuid(entry.get("document_id")),
+                    document_db_id=_uuid(entry.get("document_db_id")),
+                    column_id=_uuid(entry.get("column_id")),
                 )
             )
 
@@ -206,12 +242,13 @@ class ChatAgentRunner:
         detail = await self._service.get_session_detail(session_id)  # 404 first
         scope_id = detail.session.scope_document_db_id
 
-        # D9: the question survives any failure below.
-        await self._service.add_user_message(session_id, content)
+        # D9: the question survives any failure below. Title first so the
+        # durable commit inside add_user_message covers both.
         if not detail.messages:
             await self._service.update_session(
                 session_id, {"title": make_session_title(content)}
             )
+        await self._service.add_user_message(session_id, content)
 
         registry = SourceRegistry()
         tools = _build_tools(self._toolset, registry, scope_id)
@@ -271,15 +308,18 @@ class ChatAgentRunner:
             else:
                 raise AgentRunError("agent finished without an answer")
 
-        cleaned, refs = parse_source_markers(final_text)
-        drafts = resolve_sources(refs, registry, self._max_sources)
-
-        assistant = await self._service.add_assistant_message(
-            session_id,
-            content=cleaned,
-            steps=steps or None,
-            sources=drafts,
-        )
+        try:
+            cleaned, refs = parse_source_markers(final_text)
+            drafts = resolve_sources(refs, registry, self._max_sources)
+            assistant = await self._service.add_assistant_message(
+                session_id,
+                content=cleaned,
+                steps=steps or None,
+                sources=drafts,
+            )
+        except Exception as exc:  # noqa: BLE001 — finalize failure is a run failure (D9)
+            logger.exception("chat finalize failed (session=%s)", session_id)
+            raise AgentRunError(str(exc)) from exc
         # Overlay display names from drafts (storage keeps ids only; rank-aligned).
         by_rank = {d.rank: d for d in drafts}
         for source in assistant.sources:
@@ -287,6 +327,9 @@ class ChatAgentRunner:
             if draft is not None:
                 source.document_name = draft.document_name
                 source.column_name = draft.column_name
+                source.document_id = draft.document_id
+                source.document_db_id = draft.document_db_id
+                source.column_id = draft.column_id
         yield AnswerEvent(assistant)
 
 
@@ -395,6 +438,9 @@ def _build_tools(
                         quote=f"{column_name} = {cell.get('value')}",
                         column_name=column_name,
                         document_name=row.get("documentName"),
+                        document_id=row.get("documentId"),
+                        document_db_id=grid.get("documentDbId"),
+                        column_id=cell.get("columnId"),
                     )
         return grid
 
@@ -416,6 +462,8 @@ def _build_tools(
                 quote=item["quote"],
                 page=item.get("page"),
                 document_name=item.get("documentName"),
+                document_id=item.get("documentId"),
+                document_db_id=item.get("documentDbId"),
             )
         return results
 
