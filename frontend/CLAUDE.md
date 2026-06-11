@@ -1,6 +1,9 @@
 # Frontend — Next.js App Router + FSD
 
-React UI for Tabular Review. Built on **Next.js App Router** and organized with
+React UI for **Kalex** — a chat-first legal-document knowledge base: the Agent
+Chat surface is the product's primary screen, and the extraction grid (feature
+name "Tabular Review") is the admin surface that builds the data behind it
+(see `../docs/domain-design.md` §9 #18). Built on **Next.js App Router** and organized with
 **Feature-Sliced Design (FSD)**. Follows the standards in
 `../.claude/skills/frontend-engineer-persona/` — read it (and `guides/fsd-architecture.md`)
 before adding features.
@@ -8,8 +11,8 @@ before adding features.
 > **Source of truth:** domain model + API contract live in
 > [../docs/domain-design.md](../docs/domain-design.md). Frontend Zod schemas mirror
 > that doc (entities → `z.infer` types, endpoints → API 3-file pattern). When the
-> contract changes, update the doc and the Zod mirror together. UI/UX spec:
-> `../docs/screen-plan.md`.
+> contract changes, update the doc and the Zod mirror together. Chat-UI criteria:
+> `../docs/phase-4-chat-plan.md` §4.1.
 
 ## Tech stack
 
@@ -28,9 +31,9 @@ before adding features.
 src/
 ├── app/         Next.js routing only. Thin: imports a domain page, wires providers.
 ├── domains/     Business domains (each a slice with a Public API index.ts)
-│   ├── workspace/        Review workspace shell + project save/load (the admin grid screen)
-│   ├── document-review/  Grid, columns, verification, extraction, doc upload
-│   └── chat/             Analyst chat over the extracted dataset
+│   ├── document-db/      Workspace (DocumentDB) list, left rail, grid page shell
+│   ├── document-review/  Grid, columns, verification, extraction, doc upload, viewer
+│   └── chat/             Agent Chat (primary surface): main page, sessions, sources
 ├── widgets/     (reserved) cross-domain composite UI blocks
 ├── features/    (reserved) reusable cross-domain features
 └── shared/      Pure technical code (no business logic), organized by segment:
@@ -71,15 +74,16 @@ Path alias: `@/*` → `src/*`.
 
 | Concern | Location |
 |---|---|
-| Review workspace screen (the old `App.tsx`) | `domains/workspace/ui/ReviewWorkspacePage.tsx` |
+| Chat main page (primary surface) + sessions | `domains/chat/ui/{ChatMainPage,ChatInterface,ChatSessionList}.tsx` |
+| Workspace (DocumentDB) list / rail / grid page | `domains/document-db/ui/{DocumentDbListPage,DocumentDbRail,DocumentDbReviewPage}.tsx` |
 | Grid / cells | `domains/document-review/ui/DataGrid.tsx` |
 | Column add/edit + template library | `domains/document-review/ui/{AddColumnMenu,ColumnLibrary}.tsx` |
-| Cell citation / verification | `domains/document-review/ui/VerificationSidebar.tsx` |
-| Extraction (LLM per cell) | `domains/document-review/api/extraction.api.ts` |
+| Cell citation / verification + document viewer | `domains/document-review/ui/{VerificationSidebar,DocumentViewer}.tsx` |
+| Extraction (runs/cells API) | `domains/document-review/api/extraction*.ts` |
 | Docling convert call | `domains/document-review/api/document-processor.ts` |
-| Chat | `domains/chat/ui/ChatInterface.tsx` + `api/chat.api.ts` |
-| Generic vLLM transport (shared by both) | `shared/api/llm-client.ts` |
-| Backend base URLs | `shared/api/config.ts` (+ `shared/config/env.ts`) |
+| Chat API (mock → real in phase 4) | `domains/chat/api/chat.api.ts` |
+| Generic vLLM transport | `shared/api/llm-client.ts` |
+| Backend base URLs / mock toggles | `shared/api/config.ts` + `shared/config/env.ts` (`ENV.mocks.*`) |
 
 ## Commands
 
@@ -101,18 +105,17 @@ This is a structural migration from the original Vite SPA. **Working, building,
 typechecked** — but several persona patterns are intentionally deferred to keep
 the move reviewable:
 
-- `ReviewWorkspacePage.tsx` still holds all state via `useState` (ported from
-  `App.tsx`). **Next**: extract into Zustand stores under
-  `domains/*/model/` (Provider + selector pattern) and TanStack Query hooks for
-  extraction/conversion.
-- API calls use `fetch`; migrate to the Axios wrapper + **API 3-file pattern**
-  (`*.types.ts` Zod / `*.api.ts` / `*.hooks.ts`) per the persona.
-- No Zod schemas yet — domain types are hand-written interfaces in `model/types.ts`.
-  Add Zod as the single source of truth and infer types.
+- `DocumentDbReviewPage.tsx` still holds most grid state via `useState`.
+  **Next**: extract into Zustand stores under `domains/*/model/` (Provider +
+  selector pattern; `chat/model/chat-sessions.store.ts` is the first example).
+- **API 3-file pattern + Zod adopted** for document-db / document-review / chat
+  APIs (Axios + Zod schemas in `model/types.ts`); `document-processor.ts` still
+  uses raw `fetch`.
 - `shared/ui/icons.ts` is a lucide barrel; react-best-practices prefers direct
   imports — fine for now, revisit if bundle matters.
 - No tests/Husky yet; add Vitest + Playwright + a pre-commit hook (persona Init
   checklist) when feature work resumes.
-- Product screens still to build (see `../docs/screen-plan.md`): workspace
-  switcher (left rail), admin workspace list, chat-first user surface with
-  read-only grid. `widgets/` and `features/` are reserved for these.
+- Product screens: workspace switcher (left rail), workspace list, and the
+  chat-first user surface are built. **Next (top priority): chat mock → real**
+  — SSE step timeline, chunk/cell source chips, server-persisted sessions
+  (`../docs/phase-4-chat-plan.md` §4.1 + PR-C).

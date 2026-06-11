@@ -1,21 +1,21 @@
 
-# Tabular Review for Bulk Document Analysis
+# Kalex — Legal Document Knowledge Base with Agentic Chat
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Next.js](https://img.shields.io/badge/framework-Next.js-000000.svg)
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688.svg)
 ![AI](https://img.shields.io/badge/AI-On--prem%20vLLM-8E75B2.svg)
 
-An AI-powered document review workspace that transforms unstructured legal contracts into structured, queryable datasets. Designed for legal professionals, auditors, and procurement teams to accelerate due diligence and contract analysis.
+Kalex turns a law firm's unstructured documents into a structured, queryable knowledge base — and puts an **Agent Chat** in front of it. Upload contracts, terms, and briefs; the system converts, chunks, embeds, and extracts them into a verified data grid; then the chat agent **agentically navigates that catalog** (document DBs → columns → documents/cells/chunks) to answer questions with citations. The chat is the product's primary surface; the extraction grid (the "Tabular Review" feature) is the admin tool that builds and verifies the data behind it.
 
 ## 🚀 Features
 
-- **AI-Powered Extraction**: Automatically extract key clauses, dates, amounts, and entities from PDFs using an on-prem vLLM OpenAI-compatible endpoint.
+- **Agentic Chat (primary surface)**: Ask questions in natural language (e.g., "Which contract has the most favorable MFN clause?"). The agent explores the catalog step by step with read-only tools — streamed live over SSE — and answers with sources that link to the original passage (chunk) or the extracted grid value (cell).
+- **AI-Powered Extraction**: Automatically extract key clauses, dates, amounts, and entities from documents using an on-prem vLLM OpenAI-compatible endpoint.
 - **High-Fidelity Conversion**: Uses **Docling** (running locally) to convert PDFs and DOCX files to clean Markdown text, preserving formatting and structure without hallucination.
 - **Dynamic Schema**: Define columns with natural language prompts (e.g., "What is the governing law?").
 - **Verification & Citations**: Click any extracted cell to view the exact source quote highlighted in the original document.
-- **Spreadsheet Interface**: A high-density, Excel-like grid for managing bulk document reviews.
-- **Integrated Chat Analyst**: Ask questions across your entire dataset (e.g., "Which contract has the most favorable MFN clause?").
+- **Spreadsheet Interface ("Tabular Review")**: A high-density, Excel-like grid for managing bulk document reviews — the admin surface that builds the knowledge base the chat agent queries.
 
 ## 🎬 Demo
 
@@ -33,7 +33,7 @@ https://github.com/user-attachments/assets/b63026d8-3df6-48a8-bb4b-eb8f24d3a1ca
 .
 ├── frontend/   Next.js App Router + FSD            → see frontend/CLAUDE.md
 ├── backend/    FastAPI + DDD (bounded contexts)    → see backend/CLAUDE.md
-├── docs/       Product/design docs (screen-plan.md)
+├── docs/       Product/design docs (domain-design.md = source of truth, phase-4-chat-plan.md)
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -109,13 +109,15 @@ docker compose run --rm backend python scripts/download_docling_models.py
 
 The script downloads the required layout and table models into `/root/.cache/docling/models`, which is persisted by the `docling-cache` Docker volume. It uses `requests` with SSL verification disabled by default, supports `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`, and sends a browser-like User-Agent. Keep `DOCLING_ARTIFACTS_PATH` pointed at the same directory so Docling uses those downloaded files at runtime.
 
-Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
+Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. The chat agent relies on **native tool-calling**, so vLLM must be started with the tool-calling flags (already enabled and verified on the production server). A typical vLLM command looks like:
 
 ```bash
 vllm serve /path/to/glm-5 \
   --host 0.0.0.0 \
   --port 15006 \
-  --served-model-name glm-5
+  --served-model-name glm-5 \
+  --enable-auto-tool-choice \
+  --tool-call-parser glm45   # use the parser matching your GLM generation (glm45 / glm47 / …)
 ```
 
 ### 3. Frontend (Next.js)
