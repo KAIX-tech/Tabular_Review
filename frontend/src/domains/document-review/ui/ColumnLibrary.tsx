@@ -1,19 +1,35 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { ColumnTemplate, ColumnType, ColumnLibrary as ColumnLibraryType } from '../model/types';
-import { 
-  X, Search, Plus, Trash2, Library, Download, Upload, 
-  Hash, Calendar, Type, List, CheckSquare, FolderOpen
-} from '@/shared/ui/icons';
-import { 
-  loadColumnLibrary, 
-  saveColumnLibrary, 
-  addTemplateToLibrary, 
-  removeTemplateFromLibrary,
+import {
+  Calendar,
+  CheckSquare,
+  Download,
+  FolderOpen,
+  Hash,
+  Library,
+  List,
+  Plus,
+  Search,
+  Trash2,
+  Type,
+  Upload,
+  X,
+} from "@/shared/ui/icons";
+import type React from "react";
+import { useEffect, useState } from "react";
+import {
+  addTemplateToLibrary,
+  getTemplateCategories,
   importColumnLibrary,
-  getTemplateCategories
-} from '../lib/column-library';
+  loadColumnLibrary,
+  removeTemplateFromLibrary,
+  saveColumnLibrary,
+} from "../lib/column-library";
+import type {
+  ColumnLibrary as ColumnLibraryType,
+  ColumnTemplate,
+  ColumnType,
+} from "../model/types";
 
 interface ColumnLibraryProps {
   isOpen: boolean;
@@ -30,20 +46,20 @@ const TYPE_ICONS: Record<ColumnType, React.FC<{ className?: string }>> = {
 };
 
 const TYPE_COLORS: Record<ColumnType, string> = {
-  text: 'bg-blue-100 text-blue-700',
-  number: 'bg-emerald-100 text-emerald-700',
-  date: 'bg-purple-100 text-purple-700',
-  boolean: 'bg-amber-100 text-amber-700',
-  list: 'bg-pink-100 text-pink-700',
+  text: "bg-blue-100 text-blue-700",
+  number: "bg-emerald-100 text-emerald-700",
+  date: "bg-purple-100 text-purple-700",
+  boolean: "bg-amber-100 text-amber-700",
+  list: "bg-pink-100 text-pink-700",
 };
 
 export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
   isOpen,
   onClose,
-  onSelectTemplate
+  onSelectTemplate,
 }) => {
   const [library, setLibrary] = useState<ColumnLibraryType>({ version: 1, templates: [] });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
 
@@ -58,7 +74,7 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
 
   const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this template from your library?')) {
+    if (window.confirm("Are you sure you want to delete this template from your library?")) {
       removeTemplateFromLibrary(templateId);
       setLibrary(loadColumnLibrary());
       setCategories(getTemplateCategories());
@@ -69,8 +85,8 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
     try {
       await saveColumnLibrary(library, true);
     } catch (error) {
-      console.error('Failed to export library:', error);
-      alert('Failed to export library.');
+      console.error("Failed to export library:", error);
+      alert("Failed to export library.");
     }
   };
 
@@ -82,13 +98,14 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
         setCategories(getTemplateCategories());
       }
     } catch (error) {
-      console.error('Failed to import library:', error);
-      alert('Failed to import library. The file may be invalid.');
+      console.error("Failed to import library:", error);
+      alert("Failed to import library. The file may be invalid.");
     }
   };
 
-  const filteredTemplates = library.templates.filter(template => {
-    const matchesSearch = searchQuery === '' || 
+  const filteredTemplates = library.templates.filter((template) => {
+    const matchesSearch =
+      searchQuery === "" ||
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.prompt.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === null || template.category === selectedCategory;
@@ -100,11 +117,11 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 animate-in fade-in duration-150"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="fixed inset-4 md:inset-10 lg:inset-20 bg-white rounded-2xl shadow-2xl z-50 flex flex-col animate-in zoom-in-95 fade-in duration-200">
         {/* Header */}
@@ -161,21 +178,21 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  selectedCategory === null 
-                    ? 'bg-indigo-100 text-indigo-700' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  selectedCategory === null
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
                 All
               </button>
-              {categories.map(cat => (
+              {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                    selectedCategory === cat 
-                      ? 'bg-indigo-100 text-indigo-700' 
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    selectedCategory === cat
+                      ? "bg-indigo-100 text-indigo-700"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
                   {cat}
@@ -193,18 +210,17 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
                 <Library className="w-8 h-8 text-slate-400" />
               </div>
               <h3 className="text-lg font-semibold text-slate-700 mb-2">
-                {library.templates.length === 0 ? 'No templates yet' : 'No matching templates'}
+                {library.templates.length === 0 ? "No templates yet" : "No matching templates"}
               </h3>
               <p className="text-sm text-slate-500 max-w-sm">
-                {library.templates.length === 0 
-                  ? 'Save columns to your library when creating or editing them to reuse across projects.'
-                  : 'Try adjusting your search or filter criteria.'
-                }
+                {library.templates.length === 0
+                  ? "Save columns to your library when creating or editing them to reuse across projects."
+                  : "Try adjusting your search or filter criteria."}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTemplates.map(template => {
+              {filteredTemplates.map((template) => {
                 const TypeIcon = TYPE_ICONS[template.type];
                 return (
                   <div
@@ -227,9 +243,9 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    
+
                     <p className="text-sm text-slate-600 line-clamp-2 mb-3">{template.prompt}</p>
-                    
+
                     <div className="flex items-center justify-between">
                       {template.category && (
                         <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">

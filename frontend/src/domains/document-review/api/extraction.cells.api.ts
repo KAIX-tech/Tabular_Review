@@ -1,12 +1,12 @@
+import { getApiUrl } from "@/shared/api/config";
 import axios from "axios";
 import { z } from "zod";
-import { getApiUrl } from "@/shared/api/config";
 import {
   type CellDto,
-  cellSchema,
   type ExtractionCell,
   type ExtractionResult,
   type ExtractionRunDto,
+  cellSchema,
   extractionRunSchema,
 } from "../model/types";
 

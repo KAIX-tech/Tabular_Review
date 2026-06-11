@@ -1,14 +1,14 @@
+import type { Column, ExtractionCell } from "@/domains/document-review/model/types";
+import type { DocumentFile } from "@/domains/document-review/model/types";
 import {
+  MODEL_IDENTITY_INSTRUCTION,
+  type VllmMessage,
   callVllmChat,
   extractJsonObject,
   isResponseFormatUnsupported,
-  MODEL_IDENTITY_INSTRUCTION,
-  type VllmMessage,
   withRetry,
 } from "@/shared/api/llm-client";
 import { decodeBase64ToText } from "@/shared/lib/encoding";
-import type { Column, ExtractionCell } from "@/domains/document-review/model/types";
-import type { DocumentFile } from "@/domains/document-review/model/types";
 
 const parseExtractionJson = (text: string): ExtractionCell => {
   const json = JSON.parse(extractJsonObject(text));

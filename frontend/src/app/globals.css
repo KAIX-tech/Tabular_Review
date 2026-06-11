@@ -128,3 +128,9 @@ mark {
   color: transparent;
   mix-blend-mode: multiply;
 }
+
+/* Cited-passage highlight in the document viewer (CSS Custom Highlight API). */
+::highlight(kalex-quote) {
+  background-color: #fef08a;
+  color: #0b1220;
+}
