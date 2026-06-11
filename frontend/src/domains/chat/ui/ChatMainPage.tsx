@@ -38,6 +38,18 @@ const stripDraftMarkers = (draft: string): string =>
     .replace(/\[(chunk|cell):[0-9a-fA-F-]{36}\]/g, "")
     .replace(/\[(?:c(?:h(?:u(?:n(?:k)?)?)?|e(?:l(?:l)?)?)?)?:?[0-9a-fA-F-]*$/, "");
 
+// Block-buffered reveal: render only up to the last COMPLETED markdown block
+// (blank line) so streamed content appears element-at-a-time, each fading in
+// via .chat-fade-blocks — never growing character by character. Blocks must be
+// whole because markdown reinterprets multi-line constructs (a table header
+// line alone renders as a paragraph until its separator arrives). The
+// unfinished tail stays hidden until its boundary arrives; the final `answer`
+// event always delivers the full text.
+const completedBlocks = (draft: string): string => {
+  const lastBoundary = draft.lastIndexOf("\n\n");
+  return lastBoundary >= 0 ? draft.slice(0, lastBoundary + 2) : "";
+};
+
 // Chat-bubble markdown styling (the agent answers in markdown — headings,
 // tables, lists). Sized for chat (text-sm) vs the document viewer's article.
 const CHAT_MD_COMPONENTS: Components = {
@@ -340,6 +352,9 @@ export function ChatMainPage() {
   };
 
   const isEmpty = messages.length === 0 && pending === null;
+  // Only fully completed blocks are shown while streaming (element reveal).
+  const visibleDraft =
+    streaming && pending ? stripDraftMarkers(completedBlocks(pending.draft)) : "";
   const activeCite = panelOpen ? source : null;
   // While streaming, the just-asked question isn't in the server detail yet —
   // render it locally; once refreshed it comes from the server (dedup below).
@@ -419,12 +434,12 @@ export function ChatMainPage() {
                     </div>
                   </div>
                 )}
-                {streaming && pending && pending.draft === "" && (
+                {streaming && pending && visibleDraft === "" && (
                   <StepTimeline steps={pending.steps} />
                 )}
-                {streaming && pending && pending.draft !== "" && (
+                {streaming && pending && visibleDraft !== "" && (
                   <div>
-                    <ChatMarkdown content={stripDraftMarkers(pending.draft)} animated />
+                    <ChatMarkdown content={visibleDraft} animated />
                     <span className="inline-block w-[2px] h-4 ml-0.5 align-text-bottom bg-ink-3 animate-pulse" />
                   </div>
                 )}
