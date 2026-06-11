@@ -488,7 +488,7 @@ export function ChatMainPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-5">
               <p className="text-sm leading-relaxed text-ink">
-                <mark className="bg-yellow-200 text-ink px-0.5 rounded">{source.quote}</mark>
+                <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>
               </p>
             </div>
             {sourceLink(source) && (
