@@ -43,13 +43,7 @@ interface CellValueProps {
   selected: boolean;
 }
 
-export const CellValue: React.FC<CellValueProps> = ({
-  type,
-  value,
-  valueJson,
-  wrap,
-  selected,
-}) => {
+export const CellValue: React.FC<CellValueProps> = ({ type, value, valueJson, wrap, selected }) => {
   const baseText = `text-sm ${selected ? "font-medium" : ""}`;
   const clamp = wrap ? "whitespace-pre-wrap break-words" : "truncate max-w-[180px]";
 
