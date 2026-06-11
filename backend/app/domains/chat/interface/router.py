@@ -18,6 +18,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 
+from app.core.logging import get_logger
 from app.domains.chat.application.agent import AnswerEvent, ChatAgentRunner, StepEvent
 from app.domains.chat.application.service import ChatService
 from app.domains.chat.domain.ports import AgentRunError, SessionBusyError
@@ -33,6 +34,7 @@ from app.domains.chat.interface.schemas import (
 )
 
 router = APIRouter(tags=["chat"])
+logger = get_logger(__name__)
 
 
 def format_sse_event(event: str, data: Any) -> str:
@@ -137,6 +139,9 @@ async def send_message(
         except AgentRunError as exc:
             # D9: the user message is saved; the client shows an error + retry.
             yield format_sse_event("error", {"message": str(exc) or "agent run failed"})
+        except Exception as exc:  # noqa: BLE001 — never leave the stream without a terminal event
+            logger.exception("unexpected error in chat message stream")
+            yield format_sse_event("error", {"message": str(exc) or "internal error"})
         finally:
             active.discard(session_id)
 

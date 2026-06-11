@@ -68,7 +68,7 @@ services:
       minio:
         condition: service_healthy
     ports:
-      - "18002:8000"
+      - "${BACKEND_PORT:-18002}:8000"
     # App config from the root .env (single source of truth); missing vars fall
     # back to app/core/config.py defaults.
     env_file:
@@ -104,19 +104,15 @@ services:
     depends_on:
       - backend
     ports:
-      - "13002:3000"
+      - "${FRONTEND_PORT:-13002}:3000"
     # NEXT_PUBLIC_* are read live by `next dev` (no build step), so pass them as
     # runtime env (interpolated from .env). Polling enables hot reload over the
     # bind mount (notably on macOS/Windows Docker).
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_API_URL=${BACKEND_HOST:-http://localhost}:${BACKEND_PORT:-18002}
       - NEXT_PUBLIC_LLM_MODEL=${NEXT_PUBLIC_LLM_MODEL}
       - NEXT_PUBLIC_LLM_TIMEOUT_MS=${NEXT_PUBLIC_LLM_TIMEOUT_MS}
-      - NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS}
-      - NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB=${NEXT_PUBLIC_USE_MOCKS_DOCUMENT_DB}
-      - NEXT_PUBLIC_USE_MOCKS_CHAT=${NEXT_PUBLIC_USE_MOCKS_CHAT}
-      - NEXT_PUBLIC_USE_MOCKS_REVIEW=${NEXT_PUBLIC_USE_MOCKS_REVIEW}
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
     volumes:

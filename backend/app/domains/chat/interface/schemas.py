@@ -57,9 +57,14 @@ class ChatSourceResponse(CamelModel):
     quote: str
     page: int | None
     rank: int
-    # Display metadata (joined on read / carried from tool results after a run).
+    # Display/navigation metadata (joined on read / carried from tool results
+    # after a run): names for the chip label, ids for the jump targets
+    # (chunk → document viewer, cell → DB grid; plan §4.1).
     document_name: str | None = None
     column_name: str | None = None
+    document_id: UUID | None = None
+    document_db_id: UUID | None = None
+    column_id: UUID | None = None
 
     @classmethod
     def from_domain(cls, source: ChatSource) -> "ChatSourceResponse":
@@ -75,6 +80,9 @@ class ChatSourceResponse(CamelModel):
             rank=source.rank,
             document_name=source.document_name,
             column_name=source.column_name,
+            document_id=source.document_id,
+            document_db_id=source.document_db_id,
+            column_id=source.column_id,
         )
 
 

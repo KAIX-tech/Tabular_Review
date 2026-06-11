@@ -105,6 +105,7 @@ class CatalogAgentToolset(AgentToolset):
                 continue
             cells_by_doc.setdefault(cell.document_id, {})[column.name] = {
                 "cellId": str(cell.id),
+                "columnId": str(cell.column_id),
                 "value": cell.value,
                 "confidence": cell.confidence.value if cell.confidence else None,
                 "reviewStatus": cell.review_status.value,
@@ -120,6 +121,7 @@ class CatalogAgentToolset(AgentToolset):
             for d in documents[:_MAX_GRID_ROWS]
         ]
         return {
+            "documentDbId": str(document_db_id),
             "columns": [{"id": str(c.id), "name": c.name} for c in columns],
             "rows": rows,
             "truncated": truncated,
@@ -140,18 +142,23 @@ class CatalogAgentToolset(AgentToolset):
             document_id=document_id,
             limit=k or self._search_k,
         )
-        names: dict[UUID, str] = {}
+        meta: dict[UUID, tuple[str, str | None]] = {}
         results: list[dict[str, Any]] = []
         for chunk in chunks:
-            if chunk.document_id not in names:
+            if chunk.document_id not in meta:
                 document = await self._document_repo.get(chunk.document_id)
-                names[chunk.document_id] = document.name if document else "(unknown)"
+                meta[chunk.document_id] = (
+                    document.name if document else "(unknown)",
+                    str(document.document_db_id) if document else None,
+                )
+            name, db_id = meta[chunk.document_id]
             quote, _ = _clip(chunk.text, _QUOTE_MAX_CHARS)
             results.append(
                 {
                     "chunkId": str(chunk.id),
                     "documentId": str(chunk.document_id),
-                    "documentName": names[chunk.document_id],
+                    "documentDbId": db_id,
+                    "documentName": name,
                     "page": chunk.page,
                     "quote": quote,
                 }

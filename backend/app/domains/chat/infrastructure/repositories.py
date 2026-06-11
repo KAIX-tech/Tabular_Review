@@ -34,7 +34,7 @@ from app.domains.chat.infrastructure.models import (
 # display-name joins) without importing their ORM models — same decoupling
 # pattern as document_db's `document` table reference.
 _document_db_tbl = table("document_db", column("id"))
-_document_tbl = table("document", column("id"), column("name"))
+_document_tbl = table("document", column("id"), column("name"), column("document_db_id"))
 _chunk_tbl = table("document_chunk", column("id"), column("document_id"))
 _cell_tbl = table("cell", column("id"), column("document_id"), column("column_id"))
 _column_tbl = table("document_column", column("id"), column("name"))
@@ -114,10 +114,15 @@ class SqlAlchemyChatRepository(ChatRepository):
         chunk_ids = [s.chunk_id for s in sources if s.chunk_id is not None]
         cell_ids = [s.cell_id for s in sources if s.cell_id is not None]
 
-        chunk_names: dict[UUID, str] = {}
+        chunk_meta: dict[UUID, tuple[str, UUID, UUID]] = {}
         if chunk_ids:
             rows = await self._session.execute(
-                select(_chunk_tbl.c.id, _document_tbl.c.name)
+                select(
+                    _chunk_tbl.c.id,
+                    _document_tbl.c.name,
+                    _document_tbl.c.id,
+                    _document_tbl.c.document_db_id,
+                )
                 .select_from(
                     _chunk_tbl.join(
                         _document_tbl, _chunk_tbl.c.document_id == _document_tbl.c.id
@@ -125,12 +130,19 @@ class SqlAlchemyChatRepository(ChatRepository):
                 )
                 .where(_chunk_tbl.c.id.in_(chunk_ids))
             )
-            chunk_names = {row[0]: row[1] for row in rows}
+            chunk_meta = {row[0]: (row[1], row[2], row[3]) for row in rows}
 
-        cell_names: dict[UUID, tuple[str, str]] = {}
+        cell_meta: dict[UUID, tuple[str, str, UUID, UUID, UUID]] = {}
         if cell_ids:
             rows = await self._session.execute(
-                select(_cell_tbl.c.id, _document_tbl.c.name, _column_tbl.c.name)
+                select(
+                    _cell_tbl.c.id,
+                    _document_tbl.c.name,
+                    _column_tbl.c.name,
+                    _cell_tbl.c.document_id,
+                    _document_tbl.c.document_db_id,
+                    _cell_tbl.c.column_id,
+                )
                 .select_from(
                     _cell_tbl.join(
                         _document_tbl, _cell_tbl.c.document_id == _document_tbl.c.id
@@ -138,13 +150,21 @@ class SqlAlchemyChatRepository(ChatRepository):
                 )
                 .where(_cell_tbl.c.id.in_(cell_ids))
             )
-            cell_names = {row[0]: (row[1], row[2]) for row in rows}
+            cell_meta = {row[0]: (row[1], row[2], row[3], row[4], row[5]) for row in rows}
 
         for source in sources:
-            if source.chunk_id is not None and source.chunk_id in chunk_names:
-                source.document_name = chunk_names[source.chunk_id]
-            elif source.cell_id is not None and source.cell_id in cell_names:
-                source.document_name, source.column_name = cell_names[source.cell_id]
+            if source.chunk_id is not None and source.chunk_id in chunk_meta:
+                name, doc_id, db_id = chunk_meta[source.chunk_id]
+                source.document_name = name
+                source.document_id = doc_id
+                source.document_db_id = db_id
+            elif source.cell_id is not None and source.cell_id in cell_meta:
+                doc_name, col_name, doc_id, db_id, col_id = cell_meta[source.cell_id]
+                source.document_name = doc_name
+                source.column_name = col_name
+                source.document_id = doc_id
+                source.document_db_id = db_id
+                source.column_id = col_id
 
     async def add_session(
         self, *, title: str, scope_document_db_id: UUID | None
@@ -196,6 +216,21 @@ class SqlAlchemyChatRepository(ChatRepository):
             .values(updated_at=func.now())
         )
 
+    async def _load_message(self, message_id: UUID) -> ChatMessage:
+        """Re-select a just-flushed message with sources eagerly loaded.
+
+        ``_to_message`` touches ``orm.sources``; on a fresh/refreshed instance
+        that relationship is unloaded and a lazy load in an AsyncSession raises
+        MissingGreenlet — so always come back through selectinload.
+        """
+        stmt = (
+            select(ChatMessageOrm)
+            .where(ChatMessageOrm.id == message_id)
+            .options(selectinload(ChatMessageOrm.sources))
+        )
+        orm = (await self._session.execute(stmt)).scalars().one()
+        return _to_message(orm)
+
     async def add_user_message(self, session_id: UUID, content: str) -> ChatMessage:
         await self._ensure_session_exists(session_id)
         orm = ChatMessageOrm(
@@ -203,9 +238,12 @@ class SqlAlchemyChatRepository(ChatRepository):
         )
         self._session.add(orm)
         await self._touch_session(session_id)
-        await self._session.flush()
-        await self._session.refresh(orm)
-        return _to_message(orm)
+        # D9: the question must survive a failed/cancelled agent run. The
+        # request-scoped session only commits when the SSE stream completes, so
+        # a client disconnect would otherwise roll the user message back —
+        # commit it durably here (the run continues in a new transaction).
+        await self._session.commit()
+        return await self._load_message(orm.id)
 
     async def add_assistant_message(
         self,
@@ -235,5 +273,4 @@ class SqlAlchemyChatRepository(ChatRepository):
         self._session.add(orm)
         await self._touch_session(session_id)
         await self._session.flush()
-        await self._session.refresh(orm)
-        return _to_message(orm)
+        return await self._load_message(orm.id)

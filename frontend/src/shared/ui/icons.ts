@@ -48,4 +48,6 @@ export {
   Settings,
   Paperclip,
   ArrowUp,
+  ExternalLink,
+  Pencil,
 } from "lucide-react";

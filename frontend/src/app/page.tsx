@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Default landing → Document DB list.
+// Chat-first product: default landing → Agent Chat (docs/domain-design.md §9 #18).
 export default function Page() {
-  redirect("/document-dbs");
+  redirect("/chat");
 }

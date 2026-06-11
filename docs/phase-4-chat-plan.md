@@ -125,20 +125,21 @@ DTO는 camelCase로 프론트 Zod 미러.
 
 ---
 
-## 4. 프론트엔드 (mock → real)
+## 4. 프론트엔드 (mock → real) — ✅ 구현됨(PR-C)
 
-1. **API 3-file**: `chat.sessions.api.ts`(+SSE 소비) / `.hooks.ts` + Zod(`model/types.ts` 갱신).
-   - 매핑: 백엔드 `assistant/content/createdAt` ↔ 프론트 `model/text/timestamp`.
-   - `chatSourceSchema`에 `kind/chunkId/cellId/rank` 추가(표시 필드 유지). `steps` 타입 추가.
+1. **API 3-file**: `chat-sessions.api.ts`/`.hooks.ts` + `chat-stream.api.ts`(SSE 소비),
+   `model/types.ts`는 서버 DTO의 Zod 미러로 전면 교체(레거시 `role:"model"`/epoch
+   timestamp 형태 폐기 — UI가 서버 형태를 직접 렌더). 레거시 `ChatInterface`/`chat.api.ts`/
+   `document-db-chat.api.ts` 삭제.
 2. **SSE 소비**: `fetch`+ReadableStream(EventSource는 GET만 → POST라 fetch 스트림) 으로
    step/answer/done/**error** 처리 → 진행 표시("DB 탐색 중…") + 최종 답변/출처 렌더.
    `error` 수신 또는 done 없이 스트림이 끊기면 에러 말풍선 + **재시도**(user 메시지는 서버에
-   보존됨 — D9). 스트림 진행 중 입력 비활성화(409 방지).
-   - 호환성: `response.body?.getReader`를 feature-detect. 타깃은 모던 브라우저(Next.js)라 기본
-     지원되지만, 미지원 시 **비스트리밍 폴백**(스트림 없이 최종 `answer`만 받는 일반 POST 응답으로
-     degrade — 진행 표시는 생략)으로 처리. (서버는 동일 핸들러에서 `Accept`에 따라 분기 가능.)
-3. `ENV.mocks.chat`로 real 분기. `ChatMainPage`/`ChatInterface`/`ChatSessionList` 서버 세션 연결.
-4. 출처 칩(①②③): 셀 출처는 그리드 셀로, 청크 출처는 문서 뷰어로 점프(기존 패널 재사용, Esc 닫기).
+   보존됨 — D9). 스트림 진행 중 입력 비활성화(409 방지). 비스트리밍 폴백(JSON 응답) 처리 포함.
+3. `ENV.mocks.chat=false`로 real 전환(.env/.env.example). 세션 store는 activeId만 유지
+   (localStorage 세션 저장 제거). 루트 랜딩 `/` → `/chat`(챗-퍼스트, §9 #18).
+4. **출처 칩 + 점프**: 출처에 내비게이션 메타(documentId/documentDbId/columnId — 백엔드
+   ChatSource에 추가)를 실어, 출처 패널에서 청크 = "문서에서 보기"(그리드 `?doc=` 딥링크로
+   뷰어 자동 오픈), 셀 = "그리드에서 보기"로 이동. (셀 포커스/인용구 자동 스크롤 고도화는 후속)
 
 ### 4.1 화면 기준 (UI 스펙 — 폐기된 screen-plan.md U-0에서 이관)
 
@@ -186,8 +187,13 @@ DTO는 camelCase로 프론트 Zod 미러.
   라우터, ingestion `search_scoped` 추가, 설정 `CHAT_*` 4종. 테스트 42종 — 마커/출처 해석,
   D11 상한, SSE 프레이밍/409/error, **가짜 tool-calling 모델로 create_agent 루프 오프라인
   E2E** 포함. 온프렘 LLM E2E는 운영 pull 테스트 대기).
-- **PR-C 프론트 통합**: API 3-file + SSE 소비 + 페이지 연결.
-- (후속) 리랭커 / `query_cells` 서버측 집계 고도화.
+- **PR-C 프론트 통합**: API 3-file + SSE 소비 + 페이지 연결. **✅ 구현됨**(§4 참조.
+  검증: typecheck/lint/build + 로컬 실환경 E2E — 서버 세션 CRUD/제목 자동생성/409/
+  에러 버블·재시도/세션 재오픈 렌더까지 브라우저 확인. 이 과정에서 백엔드 결함 2건 수정:
+  ① 메시지 영속 시 lazy-load(MissingGreenlet) → selectinload 재조회, ② user 메시지가
+  스트림 종료 시점 커밋이라 disconnect 시 유실 → `add_user_message`에서 즉시 커밋(D9)).
+- (후속) 리랭커 / `query_cells` 서버측 집계 고도화 / 출처 점프 고도화(셀 포커스·인용구
+  자동 스크롤) / 운영 LLM E2E(§6 스모크).
 
 ---
 

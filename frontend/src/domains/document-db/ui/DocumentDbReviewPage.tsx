@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
 import {
   AddColumnMenu,
   ColumnLibrary,
   DataGrid,
   DocumentViewer,
+  VerificationSidebar,
   extractColumnData,
   processDocumentToMarkdown,
   useCells,
@@ -16,7 +15,6 @@ import {
   useReviewCell,
   useRun,
   useUploadDocument,
-  VerificationSidebar,
 } from "@/domains/document-review";
 import type {
   Column,
@@ -39,6 +37,8 @@ import {
   Square,
   WrapText,
 } from "@/shared/ui/icons";
+import { useParams } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
 import {
   useColumns,
   useCreateColumn,
@@ -87,6 +87,22 @@ export const DocumentDbReviewPage: React.FC = () => {
   const dbId = params?.dbId ?? "";
   const realIngestion = !ENV.mocks.review;
   const { data: ingestedDocs } = useDocuments(realIngestion ? dbId : "");
+
+  // Deep link from chat source chips (?doc=<documentId>): open the document
+  // viewer once the document list is loaded. Read from window.location (not
+  // useSearchParams) to stay client-only — no Suspense boundary needed.
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandled.current || !ingestedDocs?.length) return;
+    const docParam = new URLSearchParams(window.location.search).get("doc");
+    if (!docParam) return;
+    deepLinkHandled.current = true;
+    if (ingestedDocs.some((d) => d.id === docParam)) {
+      setViewerDocId(docParam);
+      setSelectedCell(null);
+      setSidebarMode("viewer");
+    }
+  }, [ingestedDocs]);
   const uploadMutation = useUploadDocument(dbId);
   const deleteMutation = useDeleteDocument(dbId);
 
@@ -122,7 +138,10 @@ export const DocumentDbReviewPage: React.FC = () => {
   // Stop polling and do a final cells refresh when the run finishes.
   const runStatus = runQuery.data?.status;
   useEffect(() => {
-    if (activeRunId && (runStatus === "completed" || runStatus === "failed" || runStatus === "canceled")) {
+    if (
+      activeRunId &&
+      (runStatus === "completed" || runStatus === "failed" || runStatus === "canceled")
+    ) {
       setActiveRunId(null);
       cellsQuery.refetch();
     }
@@ -169,7 +188,9 @@ export const DocumentDbReviewPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to process files:", error);
       const message =
-        error instanceof Error ? error.message : "Please check if they are valid PDF or DOCX documents.";
+        error instanceof Error
+          ? error.message
+          : "Please check if they are valid PDF or DOCX documents.";
       alert(`Error processing some files.\n\n${message}`);
     } finally {
       setIsConverting(false);
@@ -394,7 +415,9 @@ export const DocumentDbReviewPage: React.FC = () => {
 
     try {
       setColumns((prev) =>
-        prev.map((c) => (colsToProcess.some((t) => t.id === c.id) ? { ...c, status: "extracting" } : c)),
+        prev.map((c) =>
+          colsToProcess.some((t) => t.id === c.id) ? { ...c, status: "extracting" } : c,
+        ),
       );
 
       const tasks: { doc: DocumentFile; col: Column }[] = [];
@@ -422,14 +445,18 @@ export const DocumentDbReviewPage: React.FC = () => {
 
       if (!controller.signal.aborted) {
         setColumns((prev) =>
-          prev.map((c) => (colsToProcess.some((t) => t.id === c.id) ? { ...c, status: "completed" } : c)),
+          prev.map((c) =>
+            colsToProcess.some((t) => t.id === c.id) ? { ...c, status: "completed" } : c,
+          ),
         );
       }
     } finally {
       if (abortControllerRef.current === controller) {
         setIsProcessing(false);
         abortControllerRef.current = null;
-        setColumns((prev) => prev.map((c) => (c.status === "extracting" ? { ...c, status: "idle" } : c)));
+        setColumns((prev) =>
+          prev.map((c) => (c.status === "extracting" ? { ...c, status: "idle" } : c)),
+        );
       }
     }
   };
@@ -500,7 +527,11 @@ export const DocumentDbReviewPage: React.FC = () => {
       };
     }
     if (previewDocId) {
-      return { cell: null, document: gridDocuments.find((d) => d.id === previewDocId) || null, column: null };
+      return {
+        cell: null,
+        document: gridDocuments.find((d) => d.id === previewDocId) || null,
+        column: null,
+      };
     }
     return null;
   };
@@ -628,10 +659,14 @@ export const DocumentDbReviewPage: React.FC = () => {
                         setIsModelMenuOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition-colors ${
-                        selectedModel === model.id ? "bg-primary-soft text-primary" : "hover:bg-surface-muted text-ink-2"
+                        selectedModel === model.id
+                          ? "bg-primary-soft text-primary"
+                          : "hover:bg-surface-muted text-ink-2"
                       }`}
                     >
-                      <div className={`p-1.5 rounded-lg ${selectedModel === model.id ? "bg-surface shadow-soft" : "bg-surface-muted"}`}>
+                      <div
+                        className={`p-1.5 rounded-lg ${selectedModel === model.id ? "bg-surface shadow-soft" : "bg-surface-muted"}`}
+                      >
                         <model.icon className="w-4 h-4" />
                       </div>
                       <div>
@@ -667,11 +702,13 @@ export const DocumentDbReviewPage: React.FC = () => {
               >
                 {createRunMutation.isPending ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />요청 중…
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    요청 중…
                   </>
                 ) : (
                   <>
-                    <Play className="w-3.5 h-3.5 fill-current" />추출 실행
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    추출 실행
                   </>
                 )}
               </button>
@@ -682,7 +719,8 @@ export const DocumentDbReviewPage: React.FC = () => {
               onClick={handleStopExtraction}
               className="flex items-center gap-2 px-4 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold rounded-lg transition-colors"
             >
-              <Square className="w-3.5 h-3.5 fill-current" />중지
+              <Square className="w-3.5 h-3.5 fill-current" />
+              중지
             </button>
           ) : selectedDocIds.size > 0 ? (
             <button
@@ -691,7 +729,8 @@ export const DocumentDbReviewPage: React.FC = () => {
               disabled={columns.length === 0}
               className="flex items-center gap-2 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className="w-3.5 h-3.5" />재실행 ({selectedDocIds.size})
+              <RefreshCw className="w-3.5 h-3.5" />
+              재실행 ({selectedDocIds.size})
             </button>
           ) : (
             <button
@@ -700,7 +739,8 @@ export const DocumentDbReviewPage: React.FC = () => {
               disabled={documents.length === 0 || columns.length === 0}
               className="flex items-center gap-2 px-4 py-1.5 bg-ink hover:bg-ink/90 text-white text-xs font-bold rounded-lg transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />추출 실행
+              <Play className="w-3.5 h-3.5 fill-current" />
+              추출 실행
             </button>
           )}
         </div>
@@ -754,7 +794,9 @@ export const DocumentDbReviewPage: React.FC = () => {
             onSave={handleSaveColumn}
             onDelete={handleDeleteColumn}
             modelId={selectedModel}
-            initialData={editingColumnId ? columns.find((c) => c.id === editingColumnId) : undefined}
+            initialData={
+              editingColumnId ? columns.find((c) => c.id === editingColumnId) : undefined
+            }
             onOpenLibrary={handleOpenLibrary}
           />
         )}

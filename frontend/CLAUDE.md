@@ -74,14 +74,14 @@ Path alias: `@/*` → `src/*`.
 
 | Concern | Location |
 |---|---|
-| Chat main page (primary surface) + sessions | `domains/chat/ui/{ChatMainPage,ChatInterface,ChatSessionList}.tsx` |
+| Chat main page (primary surface) + sessions | `domains/chat/ui/{ChatMainPage,ChatSessionList}.tsx` |
 | Workspace (DocumentDB) list / rail / grid page | `domains/document-db/ui/{DocumentDbListPage,DocumentDbRail,DocumentDbReviewPage}.tsx` |
 | Grid / cells | `domains/document-review/ui/DataGrid.tsx` |
 | Column add/edit + template library | `domains/document-review/ui/{AddColumnMenu,ColumnLibrary}.tsx` |
 | Cell citation / verification + document viewer | `domains/document-review/ui/{VerificationSidebar,DocumentViewer}.tsx` |
 | Extraction (runs/cells API) | `domains/document-review/api/extraction*.ts` |
 | Docling convert call | `domains/document-review/api/document-processor.ts` |
-| Chat API (mock → real in phase 4) | `domains/chat/api/chat.api.ts` |
+| Chat session CRUD + agent SSE stream | `domains/chat/api/{chat-sessions.api,chat-sessions.hooks,chat-stream.api}.ts` |
 | Generic vLLM transport | `shared/api/llm-client.ts` |
 | Backend base URLs / mock toggles | `shared/api/config.ts` + `shared/config/env.ts` (`ENV.mocks.*`) |
 
@@ -116,6 +116,7 @@ the move reviewable:
 - No tests/Husky yet; add Vitest + Playwright + a pre-commit hook (persona Init
   checklist) when feature work resumes.
 - Product screens: workspace switcher (left rail), workspace list, and the
-  chat-first user surface are built. **Next (top priority): chat mock → real**
-  — SSE step timeline, chunk/cell source chips, server-persisted sessions
-  (`../docs/phase-4-chat-plan.md` §4.1 + PR-C).
+  chat-first user surface are built. **Chat is fully real** (PR-C): server
+  sessions, SSE step timeline, error/retry, chunk/cell source chips with
+  grid/viewer navigation; root `/` lands on `/chat`. Remaining polish: cell
+  focus + quote auto-scroll on source jump (`../docs/phase-4-chat-plan.md` §5).
