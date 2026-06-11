@@ -174,7 +174,9 @@ DTO는 camelCase로 프론트 Zod 미러.
 ## 5. 구현 순서 (PR 분할)
 
 - **PR-A 백엔드 컨텍스트 + 세션 CRUD**(에이전트 제외): 엔티티/ORM/repo/마이그레이션/CRUD 라우터.
-  → LLM 없이 API 검증 가능.
+  → LLM 없이 API 검증 가능. **✅ 구현됨**(`app/domains/chat/`, 마이그레이션 `f2d8c1a47e90`,
+  단위 테스트 19종 + 로컬 Postgres 라이브 스모크 통과. 메시지 영속 메서드(D9용
+  add_user/assistant_message)는 repo/service에 선반영 — PR-B는 에이전트+SSE만 남음).
 - **PR-B 에이전트 + SSE**: `AgentToolset` 어댑터(6 도구) + `langchain.agents.create_agent` 구성
   + SSE 메시지 엔드포인트(`astream_events`). → 도구 단위 테스트 + 온프렘 E2E(§6).
 - **PR-C 프론트 통합**: API 3-file + SSE 소비 + 페이지 연결.

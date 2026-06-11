@@ -803,8 +803,8 @@ create table chat_source (
 
 **구현 현황**: 백엔드는 `document_db` / `ingestion` / `extraction`(+ 인프라
 `document_conversion` / `llm` / `embedding` / `storage`) 컨텍스트와 Alembic 마이그레이션이
-구현되어 라우터까지 배선됨. `chat` 컨텍스트는 **미착수**(현재 계획 단계), `identity`는 문서상
-정의만 존재. 프론트는 `(shell)` 라우트로 챗 페이지·DocumentDB 목록/그리드가 있고 도메인별
+구현되어 라우터까지 배선됨. `chat` 컨텍스트는 **세션 CRUD(PR-A) 구현 완료**, 에이전트+SSE
+(PR-B)는 미착수. `identity`는 문서상 정의만 존재. 프론트는 `(shell)` 라우트로 챗 페이지·DocumentDB 목록/그리드가 있고 도메인별
 mock 토글(`ENV.mocks.*`)로 real API 전환 중.
 
 1. **최우선 — `chat` 컨텍스트(Agentic Search) 구현.** 제품의 1차 표면(§9 #18). 구현 계획은

@@ -19,6 +19,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine, create_sessionmaker
 from app.core.logging import configure_logging, get_logger
+from app.domains.chat.application.service import ChatService
+from app.domains.chat.domain.ports import (
+    ChatSessionNotFoundError,
+    ScopeDocumentDbNotFoundError,
+)
+from app.domains.chat.infrastructure.repositories import SqlAlchemyChatRepository
+from app.domains.chat.interface.router import router as chat_router
 from app.domains.document_conversion.application.service import DocumentConversionService
 from app.domains.document_conversion.domain.models import ConversionSettings, OcrSettings
 from app.domains.document_conversion.infrastructure.docling_converter import (
@@ -79,6 +86,10 @@ def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
         SqlAlchemyDocumentDbRepository(session),
         SqlAlchemyDocumentColumnRepository(session),
     )
+
+
+def _build_chat_service(session: AsyncSession) -> ChatService:
+    return ChatService(SqlAlchemyChatRepository(session))
 
 
 def _build_extraction_service(session: AsyncSession) -> ExtractionService:
@@ -258,18 +269,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         SqlAlchemyDocumentRepository(session), storage
     )
     app.state.extraction_service_factory = _build_extraction_service
+    app.state.chat_service_factory = _build_chat_service
 
     app.include_router(conversion_router)
     app.include_router(llm_router)
     app.include_router(document_db_router)
     app.include_router(ingestion_router)
     app.include_router(extraction_router)
+    app.include_router(chat_router)
 
     @app.exception_handler(DocumentDbNotFoundError)
     @app.exception_handler(DocumentColumnNotFoundError)
     @app.exception_handler(DocumentNotFoundError)
     @app.exception_handler(CellNotFoundError)
     @app.exception_handler(ExtractionRunNotFoundError)
+    @app.exception_handler(ChatSessionNotFoundError)
+    @app.exception_handler(ScopeDocumentDbNotFoundError)
     async def _not_found_handler(_request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc) or "Not found"})
 
