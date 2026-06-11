@@ -189,8 +189,8 @@ DTO는 camelCase로 프론트 Zod 미러.
   취소(user 메시지만 잔존), 도구 결과 절단(truncated 표시) 단위 테스트.
 - **LLM·임베딩 필요**: 에이전트 멀티스텝 E2E는 dev(OpenRouter GLM + TEI) 또는 온프렘(vLLM GLM +
   TEI)에서. 대표 질의 2종 스모크: ① 비정형("…에 대해 설명") ② 정형("…가 가장 ~한 문서?").
-  → 온프렘은 vLLM이 tool-calling으로 떠 있는지(`--enable-auto-tool-choice` 등), dev는 해당 GLM이
-  OpenRouter에서 tool-calling 지원하는지 먼저 확인.
+  → 온프렘 vLLM tool-calling은 **운영 환경에서 검증 완료**(2026-06, `--enable-auto-tool-choice`
+  + GLM 파서). dev는 해당 GLM이 OpenRouter에서 tool-calling 지원하는지 스모크로 확인.
 - **두 LLM 경로 정합성**(PR-B): 챗(`ChatOpenAI` native tool-calling)과 추출(`generate_json`)이
   같은 타깃(`_openai_llm_target`)을 쓰는지 확인하는 통합 테스트 1종 — 같은 vLLM/OpenRouter 설정에서
   ① 추출이 유효 JSON 객체를 돌려주고 ② 챗 모델이 tool_calls를 생성하는지(스키마/포맷 드리프트 조기 감지).
@@ -201,7 +201,8 @@ DTO는 camelCase로 프론트 Zod 미러.
 
 - **정형 집계 정확도**: `query_cells` 결과를 LLM이 추론 → 큰 그리드에서 한계. 서버측 필터/집계는 후속.
 - **루프 안정성**: 무한 반복 → MAX_STEPS/recursion_limit + best-effort 종료.
-- **vLLM tool-calling 설정 의존**: GLM이 tool-call 파서로 떠 있어야 함(서버 설정). 모델별 tool-call 품질 편차 가능 → 스모크 검증.
+- **vLLM tool-calling 설정 의존**: ✅ 해소 — 운영 vLLM에서 tool-calling 검증 완료(2026-06).
+  잔여: dev(OpenRouter GLM) 스모크 + 모델별 tool-call 품질 편차 관찰.
 - **도구 결과 토큰 폭증**: → 설계로 반영(D11, §2.1 — 공통 상한 + get_document 슬라이스 필수).
 - **출처 마커 미준수**: 모델이 `[chunk:<id>]` 인용 형식을 안 지킬 수 있음 → 휴리스틱 폴백(D10)
   + 스모크에서 마커 준수율 확인, 필요 시 프롬프트 보강.

@@ -109,13 +109,15 @@ docker compose run --rm backend python scripts/download_docling_models.py
 
 The script downloads the required layout and table models into `/root/.cache/docling/models`, which is persisted by the `docling-cache` Docker volume. It uses `requests` with SSL verification disabled by default, supports `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN`, and sends a browser-like User-Agent. Keep `DOCLING_ARTIFACTS_PATH` pointed at the same directory so Docling uses those downloaded files at runtime.
 
-Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. A typical vLLM command looks like:
+Because vLLM is called from the backend, the vLLM server does not need to allow browser CORS. The chat agent relies on **native tool-calling**, so vLLM must be started with the tool-calling flags (already enabled and verified on the production server). A typical vLLM command looks like:
 
 ```bash
 vllm serve /path/to/glm-5 \
   --host 0.0.0.0 \
   --port 15006 \
-  --served-model-name glm-5
+  --served-model-name glm-5 \
+  --enable-auto-tool-choice \
+  --tool-call-parser glm45   # use the parser matching your GLM generation (glm45 / glm47 / …)
 ```
 
 ### 3. Frontend (Next.js)

@@ -768,7 +768,7 @@ create table chat_source (
 13. **챗 = Agentic Search** → ✅ **단발 RAG가 아니라 에이전트가 카탈로그를 탐색**(DB→컬럼→문서/셀/청크)
    하며 정형·비정형 질의를 함께 처리(§2.13). 청크 시맨틱 검색은 에이전트 도구 중 하나.
 14. **도구 호출 방식** → ✅ **모델 native tool-calling.** GLM(vLLM)이 tool-calling으로 구성돼
-   있으므로 JSON 루프 대신 native tool-calling을 쓴다(견고성·정확도↑). LangChain chat model
+   있으므로(**운영 환경 검증 완료, 2026-06**) JSON 루프 대신 native tool-calling을 쓴다(견고성·정확도↑). LangChain chat model
    (`langchain-openai`→vLLM·OpenRouter GLM)의 네이티브 tool-calling(도구 바인딩은 `create_agent`가
    담당; §17). **챗만** LangChain chat model 경로, **추출은 기존 `generate_json` 유지**(두 경로 공존).
 15. **챗 출처 범위** → ✅ **청크 + 셀.** ChatSource는 `chunk_id`(비정형) 또는 `cell_id`(정형) 중
