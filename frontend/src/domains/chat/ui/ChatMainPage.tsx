@@ -19,12 +19,21 @@ const SUGGESTED = [
   "최근 수정된 문서는?",
 ];
 
-/** In-flight agent turn: the question, live steps, and a terminal error (D9). */
+/** In-flight agent turn: the question, live steps/draft, a terminal error (D9). */
 interface PendingTurn {
   question: string;
   steps: ChatStep[];
+  /** Token-streamed answer text (SSE `delta`); replaced by the final answer. */
+  draft: string;
   error: string | null;
 }
+
+// Hide citation markers while the draft streams (the final answer arrives with
+// them already stripped); also trim a trailing half-typed marker.
+const stripDraftMarkers = (draft: string): string =>
+  draft
+    .replace(/\[(chunk|cell):[0-9a-fA-F-]{36}\]/g, "")
+    .replace(/\[(?:c(?:h(?:u(?:n(?:k)?)?)?|e(?:l(?:l)?)?)?)?:?[0-9a-fA-F-]*$/, "");
 
 function Composer({
   value,
@@ -180,7 +189,7 @@ export function ChatMainPage() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, pending?.steps.length, pending?.error]);
+  }, [messages.length, pending?.steps.length, pending?.draft, pending?.error]);
 
   // Close the source drawer on Escape or a click outside it (citation chips switch instead).
   useEffect(() => {
@@ -223,7 +232,7 @@ export function ChatMainPage() {
     const q = text.trim();
     if (!q || streaming) return;
     setInput("");
-    setPending({ question: q, steps: [], error: null });
+    setPending({ question: q, steps: [], draft: "", error: null });
 
     let sessionId = activeId && detail ? activeId : null;
     if (!sessionId) {
@@ -232,14 +241,18 @@ export function ChatMainPage() {
         sessionId = session.id;
         selectSession(session.id);
       } catch {
-        setPending({ question: q, steps: [], error: "세션을 만들지 못했습니다." });
+        setPending({ question: q, steps: [], draft: "", error: "세션을 만들지 못했습니다." });
         return;
       }
     }
     const sid = sessionId;
 
     await sendChatMessageStream(sid, q, {
-      onStep: (step) => setPending((p) => (p ? { ...p, steps: [...p.steps, step] } : p)),
+      // A step after streamed text means that text was a tool-calling round's
+      // preamble, not the answer — drop the draft and keep the timeline.
+      onStep: (step) =>
+        setPending((p) => (p ? { ...p, steps: [...p.steps, step], draft: "" } : p)),
+      onDelta: (text) => setPending((p) => (p ? { ...p, draft: p.draft + text } : p)),
       onAnswer: () => {},
       onDone: () => {
         refresh(sid);
@@ -249,7 +262,7 @@ export function ChatMainPage() {
         // D9: the question is already persisted server-side — show it + retry.
         refresh(sid);
         setPending((p) =>
-          p ? { ...p, error: message } : { question: q, steps: [], error: message },
+          p ? { ...p, error: message } : { question: q, steps: [], draft: "", error: message },
         );
       },
     });
@@ -344,7 +357,15 @@ export function ChatMainPage() {
                     </div>
                   </div>
                 )}
-                {streaming && pending && <StepTimeline steps={pending.steps} />}
+                {streaming && pending && pending.draft === "" && (
+                  <StepTimeline steps={pending.steps} />
+                )}
+                {streaming && pending && pending.draft !== "" && (
+                  <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap break-words">
+                    {stripDraftMarkers(pending.draft)}
+                    <span className="inline-block w-[2px] h-4 ml-0.5 align-text-bottom bg-ink-3 animate-pulse" />
+                  </p>
+                )}
                 {pending?.error && (
                   <div className="flex items-start gap-3">
                     <div className="px-4 py-3 text-sm leading-relaxed bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl rounded-tl-md">

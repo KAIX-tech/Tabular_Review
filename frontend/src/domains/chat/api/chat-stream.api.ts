@@ -18,6 +18,9 @@ import { MOCK_STEPS, mockAppendExchange } from "./chat.fixtures";
 
 export interface ChatStreamHandlers {
   onStep: (step: ChatStep) => void;
+  /** Live token chunk of the answer being generated (cosmetic; `answer` is
+   * authoritative and replaces the accumulated draft). */
+  onDelta: (text: string) => void;
   onAnswer: (answer: ChatAnswerEvent) => void;
   /** `error` SSE event, non-2xx response, or a stream cut before `done`. */
   onError: (message: string) => void;
@@ -36,6 +39,11 @@ export async function sendChatMessageStream(
     }
     await new Promise((resolve) => setTimeout(resolve, 350));
     const assistant = mockAppendExchange(sessionId, content);
+    // Simulate token streaming so the typing feel is visible offline too.
+    for (const piece of assistant.content.match(/.{1,12}/gs) ?? []) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      handlers.onDelta(piece);
+    }
     handlers.onAnswer({ content: assistant.content, sources: assistant.sources });
     handlers.onDone(assistant.id);
     return;
@@ -94,6 +102,8 @@ export async function sendChatMessageStream(
     const payload = JSON.parse(data);
     if (event === "step") {
       handlers.onStep(chatStepSchema.parse(payload));
+    } else if (event === "delta") {
+      handlers.onDelta(String(payload.text ?? ""));
     } else if (event === "answer") {
       handlers.onAnswer(chatAnswerEventSchema.parse(payload));
     } else if (event === "done") {

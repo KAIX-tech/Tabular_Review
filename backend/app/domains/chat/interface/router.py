@@ -19,7 +19,12 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.core.logging import get_logger
-from app.domains.chat.application.agent import AnswerEvent, ChatAgentRunner, StepEvent
+from app.domains.chat.application.agent import (
+    AnswerEvent,
+    ChatAgentRunner,
+    DeltaEvent,
+    StepEvent,
+)
 from app.domains.chat.application.service import ChatService
 from app.domains.chat.domain.ports import AgentRunError, SessionBusyError
 from app.domains.chat.interface.dependencies import get_chat_agent_runner, get_chat_service
@@ -130,6 +135,10 @@ async def send_message(
                 if isinstance(event, StepEvent):
                     step = ChatStepResponse.from_domain(event.step)
                     yield format_sse_event("step", step.model_dump(mode="json", by_alias=True))
+                elif isinstance(event, DeltaEvent):
+                    # Live token stream of the model's text; the final `answer`
+                    # event is authoritative and replaces it client-side.
+                    yield format_sse_event("delta", {"text": event.text})
                 elif isinstance(event, AnswerEvent):
                     data = _answer_payload(event)
                     yield format_sse_event(
