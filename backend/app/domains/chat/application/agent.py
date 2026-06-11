@@ -12,6 +12,7 @@ question is already saved, nothing else is.
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
@@ -56,6 +57,9 @@ _SYSTEM_PROMPT = """\
 
 규칙:
 - 근거 없이 추측하지 말 것. 도구 결과에 없는 내용은 모른다고 답한다.
+- **도구 인자의 id**(documentDbId/documentId/columnIds)는 반드시 이전 도구 결과의
+  'id' 필드 값(UUID)을 그대로 사용한다. DB 이름이나 문서 이름을 id 자리에 넣지 않는다.
+  id를 모르면 list_document_dbs / list_documents 를 먼저 호출한다.
 - 결과에 truncated 표시가 있으면 범위를 좁혀 다시 조회한다.
 - 최종 답변은 한국어로, 간결하고 정확하게.
 - **출처 인용(필수)**: 답변 본문에서 근거로 사용한 도구 결과의 id를 그 자리에
@@ -413,7 +417,34 @@ def _parse_uuid(value: str, label: str) -> UUID:
     try:
         return UUID(value)
     except (ValueError, AttributeError, TypeError) as exc:
-        raise ValueError(f"invalid {label}: {value!r}") from exc
+        # Models occasionally pass a *name* where an id belongs ("test") —
+        # make the error a usable correction instruction, not just a rejection.
+        raise ValueError(
+            f"invalid {label}: {value!r} — 인자는 UUID여야 합니다. "
+            "list_document_dbs / list_documents / list_columns 결과의 'id' 값을 "
+            "그대로 사용하세요(이름 금지)."
+        ) from exc
+
+
+def _guarded(fn: Any) -> Any:
+    """Convert tool failures into error payloads the model can act on.
+
+    A bad argument (e.g. a DB name instead of a UUID) must not kill the whole
+    run (D9) — the ReAct loop sees {"error": …} in the ToolMessage and corrects
+    itself on the next round.
+    """
+
+    @functools.wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await fn(*args, **kwargs)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        except Exception as exc:  # noqa: BLE001 — surfaced to the model, logged here
+            logger.exception("chat tool %s failed", getattr(fn, "__name__", "?"))
+            return {"error": f"도구 실행 실패: {exc}"}
+
+    return wrapper
 
 
 def _build_tools(
@@ -421,8 +452,9 @@ def _build_tools(
 ) -> list[StructuredTool]:
     """Bind the read-only toolset for one run.
 
-    Wrappers enforce the session scope (D7) and record every chunk/cell id the
-    agent saw into ``registry`` (citation validation + fallback, D10).
+    Wrappers enforce the session scope (D7), record every chunk/cell id the
+    agent saw into ``registry`` (citation validation + fallback, D10), and are
+    wrapped by ``_guarded`` so argument mistakes come back as error payloads.
     """
 
     def _effective_db(document_db_id: str | None) -> UUID | None:
@@ -499,24 +531,24 @@ def _build_tools(
 
     return [
         StructuredTool.from_function(
-            coroutine=list_document_dbs,
+            coroutine=_guarded(list_document_dbs),
             name="list_document_dbs",
             description="모든 Document DB(워크스페이스) 목록과 문서/컬럼 수를 조회한다.",
         ),
         StructuredTool.from_function(
-            coroutine=list_columns,
+            coroutine=_guarded(list_columns),
             name="list_columns",
             description="한 Document DB의 추출 스키마(컬럼 정의: 이름/타입/프롬프트)를 조회한다.",
             args_schema=_ListColumnsArgs,
         ),
         StructuredTool.from_function(
-            coroutine=list_documents,
+            coroutine=_guarded(list_documents),
             name="list_documents",
             description="한 Document DB에 들어있는 문서 목록(이름/상태)을 조회한다.",
             args_schema=_ListDocumentsArgs,
         ),
         StructuredTool.from_function(
-            coroutine=query_cells,
+            coroutine=_guarded(query_cells),
             name="query_cells",
             description=(
                 "한 Document DB의 추출 그리드 값(문서×컬럼 셀)을 조회한다. "
@@ -525,7 +557,7 @@ def _build_tools(
             args_schema=_QueryCellsArgs,
         ),
         StructuredTool.from_function(
-            coroutine=search_chunks,
+            coroutine=_guarded(search_chunks),
             name="search_chunks",
             description=(
                 "원문 청크를 시맨틱 검색한다. 비정형 질문(조항 내용/원문 근거)에 사용. "
@@ -534,7 +566,7 @@ def _build_tools(
             args_schema=_SearchChunksArgs,
         ),
         StructuredTool.from_function(
-            coroutine=get_document,
+            coroutine=_guarded(get_document),
             name="get_document",
             description="문서 markdown의 슬라이스(offset/length)를 읽는다. 전문 반환은 불가.",
             args_schema=_GetDocumentArgs,

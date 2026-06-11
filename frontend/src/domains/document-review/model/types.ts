@@ -55,6 +55,8 @@ export interface Column {
 
 export interface ExtractionCell {
   value: string;
+  /** Typed normalized value from the backend (number/boolean/list…). */
+  valueJson?: unknown;
   confidence?: "High" | "Medium" | "Low";
   quote: string;
   page: number;
