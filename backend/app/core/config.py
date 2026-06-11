@@ -150,21 +150,31 @@ class Settings(BaseSettings):
     docling_hf_trust_env: bool = Field(default=False, alias="DOCLING_HF_TRUST_ENV")
 
     # --- HTTP / CORS ---
-    # The browser-facing frontend origin (scheme://host:port). CORS is derived
-    # from this — no separate CORS_ORIGINS variable.
-    frontend_host: str = Field(default="http://localhost:13002", alias="FRONTEND_HOST")
+    # Browser-facing frontend address, split host/port (FRONTEND_HOST may carry
+    # the scheme; a bare hostname is normalized to http://). CORS is derived
+    # from these — no separate CORS_ORIGINS variable. The same FRONTEND_PORT
+    # also drives the compose port publish.
+    frontend_host: str = Field(default="http://localhost", alias="FRONTEND_HOST")
+    frontend_port: int = Field(default=13002, alias="FRONTEND_PORT")
+
+    @property
+    def frontend_origin(self) -> str:
+        host = self.frontend_host.rstrip("/")
+        if not host.startswith(("http://", "https://")):
+            host = f"http://{host}"
+        return f"{host}:{self.frontend_port}"
 
     @property
     def cors_origins(self) -> list[str]:
-        """Allowed browser origins: FRONTEND_HOST + local dev conveniences.
+        """Allowed browser origins: the frontend origin + local dev conveniences.
 
         The localhost entries keep non-docker `pnpm dev` (:3000) and the dev
-        compose frontend (:13002) working without extra configuration.
+        compose frontend working without extra configuration.
         """
         origins = [
-            self.frontend_host.rstrip("/"),
+            self.frontend_origin,
             "http://localhost:3000",
-            "http://localhost:13002",
+            f"http://localhost:{self.frontend_port}",
         ]
         return list(dict.fromkeys(origins))
 
