@@ -130,7 +130,7 @@ export const VerificationSidebar: React.FC<VerificationSidebarProps> = ({
             return (
               <mark
                 key={i}
-                className="bg-yellow-200 text-slate-900 px-0.5 rounded-sm border-b-2 border-yellow-400 font-medium"
+                className="bg-primary/15 text-ink px-0.5 rounded-sm border-b-2 border-primary/40 font-medium"
               >
                 {part}
               </mark>

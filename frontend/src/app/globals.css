@@ -131,6 +131,7 @@ mark {
 
 /* Cited-passage highlight in the document viewer (CSS Custom Highlight API). */
 ::highlight(kalex-quote) {
-  background-color: #fef08a;
-  color: #0b1220;
+  /* Quiet blue accent (--primary), matching selection states elsewhere. */
+  background-color: rgb(var(--primary) / 0.16);
+  color: rgb(var(--ink));
 }
