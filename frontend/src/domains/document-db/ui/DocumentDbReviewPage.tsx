@@ -88,19 +88,29 @@ export const DocumentDbReviewPage: React.FC = () => {
   const realIngestion = !ENV.mocks.review;
   const { data: ingestedDocs } = useDocuments(realIngestion ? dbId : "");
 
-  // Deep link from chat source chips (?doc=<documentId>&quote=<passage>): open
-  // the document viewer once the document list is loaded, highlighting the
-  // cited passage when a quote rides along. Read from window.location (not
-  // useSearchParams) to stay client-only — no Suspense boundary needed.
+  // Deep links from chat source chips, handled once the document list loads.
+  // Read from window.location (not useSearchParams) to stay client-only.
+  //  - ?doc=<documentId>&quote=<passage> → open the viewer, highlight the quote
+  //  - ?cell=<documentId>:<columnId>     → select that cell (verification panel)
   const deepLinkHandled = useRef(false);
   const [viewerQuote, setViewerQuote] = useState<string | null>(null);
   useEffect(() => {
     if (deepLinkHandled.current || !ingestedDocs?.length) return;
     const params = new URLSearchParams(window.location.search);
     const docParam = params.get("doc");
-    if (!docParam) return;
+    const cellParam = params.get("cell");
+    if (!docParam && !cellParam) return;
     deepLinkHandled.current = true;
-    if (ingestedDocs.some((d) => d.id === docParam)) {
+    if (cellParam) {
+      const [cellDocId, cellColId] = cellParam.split(":");
+      if (cellDocId && cellColId && ingestedDocs.some((d) => d.id === cellDocId)) {
+        setSelectedCell({ docId: cellDocId, colId: cellColId });
+        setViewerDocId(null);
+        setSidebarMode("verify");
+      }
+      return;
+    }
+    if (docParam && ingestedDocs.some((d) => d.id === docParam)) {
       setViewerDocId(docParam);
       setViewerQuote(params.get("quote"));
       setSelectedCell(null);

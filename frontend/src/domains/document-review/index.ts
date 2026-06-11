@@ -25,8 +25,10 @@ export {
   useRun,
   useCreateRun,
   useReviewCell,
+  useCellDetail,
   cellKeys,
 } from "./api/extraction.cells.hooks";
+export { CellDetailCard, type CellDetailData } from "./ui/CellDetailCard";
 
 export { DataGrid } from "./ui/DataGrid";
 export { DocumentViewer } from "./ui/DocumentViewer";

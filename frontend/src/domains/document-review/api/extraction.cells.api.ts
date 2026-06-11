@@ -76,3 +76,9 @@ export async function reviewCell(
 ): Promise<void> {
   await axios.patch(`${getApiUrl()}/cells/${cellId}`, input);
 }
+
+/** One cell with sources — used by the chat drawer's 추출값 참조 detail. */
+export async function getCell(cellId: string): Promise<CellDto> {
+  const { data } = await axios.get(`${getApiUrl()}/cells/${cellId}`);
+  return cellSchema.parse(data);
+}
