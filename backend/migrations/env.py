@@ -20,6 +20,7 @@ from app.core.db import Base
 # --- Register ORM models so their tables attach to Base.metadata ---------------
 # Import each context's models module for autogenerate. Add new contexts here as
 # they gain persistence (e.g. extraction, chat, identity).
+from app.domains.chat.infrastructure import models as _chat_models  # noqa: E402,F401
 from app.domains.document_db.infrastructure import models as _document_db_models  # noqa: E402,F401
 from app.domains.extraction.infrastructure import models as _extraction_models  # noqa: E402,F401
 from app.domains.ingestion.infrastructure import models as _ingestion_models  # noqa: E402,F401

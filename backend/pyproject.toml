@@ -30,7 +30,14 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 
 [tool.uv]
 # This is an application, not a library — don't build/install the root package.
