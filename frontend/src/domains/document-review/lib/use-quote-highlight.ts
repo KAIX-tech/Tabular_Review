@@ -30,10 +30,33 @@ export function useQuoteHighlight(
         selection?.removeAllRanges();
         selection?.addRange(range);
       }
-      (range.startContainer.parentElement ?? root).scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      // Scroll only the viewer's own scroll container — scrollIntoView would
+      // also scroll every scrollable ancestor (overflow-hidden ones included),
+      // which drags the whole app sideways when the chat source drawer is
+      // still translating in from off-screen.
+      const target = range.startContainer.parentElement ?? root;
+      let scroller: HTMLElement | null = target;
+      while (scroller && scroller !== document.body) {
+        const { overflowY } = window.getComputedStyle(scroller);
+        if (
+          (overflowY === "auto" || overflowY === "scroll") &&
+          scroller.scrollHeight > scroller.clientHeight
+        ) {
+          break;
+        }
+        scroller = scroller.parentElement;
+      }
+      if (scroller && scroller !== document.body) {
+        const targetRect = target.getBoundingClientRect();
+        const scrollerRect = scroller.getBoundingClientRect();
+        scroller.scrollTo({
+          top:
+            scroller.scrollTop +
+            (targetRect.top - scrollerRect.top) -
+            (scroller.clientHeight - targetRect.height) / 2,
+          behavior: "smooth",
+        });
+      }
     }, 80);
     return () => {
       window.clearTimeout(timer);

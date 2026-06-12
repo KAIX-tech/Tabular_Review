@@ -176,10 +176,29 @@ mark {
   animation: kalex-word-in 0.3s ease-out both;
 }
 
+/* Sidebar group expand/collapse: grid-rows 0fr→1fr animates to auto height
+   without measuring. The single grid child needs min-height:0 + overflow
+   hidden so the fraction track can actually clip it. */
+.kalex-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease-out;
+}
+.kalex-collapse.is-open {
+  grid-template-rows: 1fr;
+}
+.kalex-collapse > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kalex-word,
   .chat-fade-blocks :is(table, blockquote, pre, hr),
   .kalex-fade-in {
     animation: none;
+  }
+  .kalex-collapse {
+    transition: none;
   }
 }
