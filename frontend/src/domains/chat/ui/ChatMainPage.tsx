@@ -28,9 +28,9 @@ import { useChatSessionsStore } from "../model/chat-sessions.store";
 import type { ChatMessage, ChatSource, ChatStep } from "../model/types";
 
 const SUGGESTED = [
-  "MFN 조항이 가장 유리한 계약은?",
-  "전체 DB에서 가장 흔한 조항은?",
-  "최근 수정된 문서는?",
+  "주주총회 특별결의가 필요한 거래는?",
+  "Change of Control 조항이 있는 계약은?",
+  "법률실사에서 우발부채 리스크가 지적된 문서는?",
 ];
 
 /** In-flight agent turn: the question, live steps/draft, a terminal error (D9). */
