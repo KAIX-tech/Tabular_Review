@@ -204,3 +204,38 @@ async def test_hallucinated_marker_falls_back_to_tool_results(service: ChatServi
     answer = events[-1].message
     # Hallucinated id rejected → fallback cites what the agent actually saw.
     assert str(answer.sources[0].chunk_id) == CHUNK_ID
+
+
+async def test_identical_repeated_tool_calls_short_circuit(service: ChatService) -> None:
+    """A model stuck re-issuing the same call gets a correction payload instead
+    of a fresh execution (loop guard) — the run still ends with an answer."""
+
+    class CountingToolset(FakeToolset):
+        def __init__(self) -> None:
+            self.search_calls = 0
+
+        async def search_chunks(self, query, *, document_db_id=None, document_id=None, k=None):
+            self.search_calls += 1
+            return await super().search_chunks(
+                query, document_db_id=document_db_id, document_id=document_id, k=k
+            )
+
+    call = {"name": "search_chunks", "args": {"query": "MFN"}}
+    model = FakeToolCallingModel(
+        responses=[
+            AIMessage(content="", tool_calls=[{**call, "id": "c1"}]),
+            AIMessage(content="", tool_calls=[{**call, "id": "c2"}]),
+            AIMessage(content="", tool_calls=[{**call, "id": "c3"}]),
+            AIMessage(content=f"수집된 근거로 답합니다 [chunk:{CHUNK_ID}]"),
+        ]
+    )
+    toolset = CountingToolset()
+    runner = ChatAgentRunner(
+        service=service, toolset=toolset, chat_model=model, max_steps=8, max_sources=5
+    )
+    session = await service.create_session(scope_document_db_id=None)
+    events = [e async for e in runner.run(session.id, "같은 도구 반복 호출")]
+
+    assert toolset.search_calls == 2  # 3rd identical call short-circuited by the loop guard
+    assert len([e for e in events if isinstance(e, StepEvent)]) == 3
+    assert isinstance(events[-1], AnswerEvent)
