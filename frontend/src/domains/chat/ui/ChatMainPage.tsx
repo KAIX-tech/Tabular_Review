@@ -238,6 +238,9 @@ function ChatMarkdown({
   );
 }
 
+// Auto-growing composer: 1 line tall, grows with content up to ~5 lines
+// (max-h-40) then scrolls inside. Enter sends, Shift+Enter inserts a newline,
+// and Enter during IME composition (한글 조합 중) never sends.
 function Composer({
   value,
   onChange,
@@ -249,16 +252,30 @@ function Composer({
   onSend: () => void;
   disabled: boolean;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [value]);
   return (
-    <div className="relative flex items-center">
-      <input
+    <div className="relative flex items-end">
+      <textarea
+        ref={ref}
+        rows={1}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && onSend()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            onSend();
+          }
+        }}
         placeholder="전체 Document DB에 대해 무엇이든 물어보세요…"
-        className="w-full h-14 bg-surface border border-border rounded-2xl pl-5 pr-[5.5rem] text-[15px] text-ink placeholder:text-ink-3 shadow-card transition focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="w-full bg-surface border border-border rounded-2xl pl-5 pr-[5.5rem] py-4 text-[15px] leading-6 text-ink placeholder:text-ink-3 shadow-card transition focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none max-h-40 overflow-y-auto"
       />
-      <div className="absolute right-2.5 flex items-center gap-1">
+      <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1">
         <button type="button" title="첨부" className="tr-icon-btn h-9 w-9">
           <Paperclip className="w-4 h-4" strokeWidth={1.75} />
         </button>
@@ -354,7 +371,7 @@ function CopyButton({
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="group flex flex-col items-end">
-      <div className="kalex-user-bubble max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md select-text">
+      <div className="kalex-user-bubble max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md select-text whitespace-pre-wrap break-words">
         {text}
       </div>
       <div className="mt-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
