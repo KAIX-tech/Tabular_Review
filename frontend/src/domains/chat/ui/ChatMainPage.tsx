@@ -260,7 +260,9 @@ function Composer({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [value]);
   return (
-    <div className="relative flex items-end">
+    // The pill is the container; textarea and buttons are separate flex
+    // columns inside it, so the textarea's scrollbar sits left of the buttons.
+    <div className="flex items-end gap-2 bg-surface border border-border rounded-2xl shadow-card pl-5 pr-2.5 py-2.5 transition focus-within:ring-2 focus-within:ring-primary/20">
       <textarea
         ref={ref}
         rows={1}
@@ -273,9 +275,9 @@ function Composer({
           }
         }}
         placeholder="전체 Document DB에 대해 무엇이든 물어보세요…"
-        className="w-full bg-surface border border-border rounded-2xl pl-5 pr-[5.5rem] py-4 text-[15px] leading-6 text-ink placeholder:text-ink-3 shadow-card transition focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none max-h-40 overflow-y-auto"
+        className="flex-1 min-w-0 bg-transparent py-1.5 text-[15px] leading-6 text-ink placeholder:text-ink-3 focus:outline-none resize-none max-h-40 overflow-y-auto"
       />
-      <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         <button type="button" title="첨부" className="tr-icon-btn h-9 w-9">
           <Paperclip className="w-4 h-4" strokeWidth={1.75} />
         </button>
