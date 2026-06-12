@@ -1,7 +1,17 @@
 "use client";
 
 import { CellDetailCard, DocumentViewer, useCellDetail } from "@/domains/document-review";
-import { ArrowUp, ChevronRight, ExternalLink, Loader2, Paperclip, X } from "@/shared/ui/icons";
+import { copyText } from "@/shared/lib/clipboard";
+import {
+  ArrowUp,
+  Check,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Paperclip,
+  X,
+} from "@/shared/ui/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { isValidElement, useEffect, useRef, useState } from "react";
@@ -65,11 +75,12 @@ const pendingBlocks = (p: PendingTurn): string[] => {
 };
 
 // Paced reveal cadence: one block per tick gives a continuous, flowing
-// cascade even when the network delivers blocks in bursts. Catch up faster
-// when the queue builds so long answers don't drag (user-accepted tradeoff:
-// slightly later full delivery for smoothness).
-const REVEAL_INTERVAL_MS = 180;
-const REVEAL_CATCHUP_MS = 90;
+// cascade even when the network delivers blocks in bursts. Kept tight — on
+// the real LLM the next block is often still generating, so added latency
+// here reads as dead air between elements; the word-stagger waves (up to
+// 600ms) overlap across consecutive blocks and carry the continuity.
+const REVEAL_INTERVAL_MS = 60;
+const REVEAL_CATCHUP_MS = 30;
 const REVEAL_CATCHUP_THRESHOLD = 3;
 
 // Chat-bubble markdown styling (the agent answers in markdown — headings,
@@ -280,6 +291,54 @@ function GeneratingDots({ className = "" }: { className?: string }) {
           style={{ animationDelay: `${d}ms` }}
         />
       ))}
+    </div>
+  );
+}
+
+/** Copy-to-clipboard with a brief ✓ confirmation (insecure-context fallback inside). */
+function CopyButton({
+  text,
+  title = "복사",
+  className = "",
+}: {
+  text: string;
+  title?: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={async () => {
+        if (await copyText(text)) {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        }
+      }}
+      className={`inline-flex items-center justify-center h-7 w-7 rounded-md text-ink-3 hover:text-ink hover:bg-surface-muted transition-colors ${className}`}
+    >
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-emerald-600" />
+      ) : (
+        <Copy className="w-3.5 h-3.5" />
+      )}
+    </button>
+  );
+}
+
+/** User question bubble: copy action below, like the answer's (hover reveal).
+ *  kalex-user-bubble scopes a solid-blue ::selection — the global soft-blue
+ *  selection is invisible against the bubble's own soft-blue background. */
+function UserBubble({ text }: { text: string }) {
+  return (
+    <div className="group flex flex-col items-end">
+      <div className="kalex-user-bubble max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md select-text">
+        {text}
+      </div>
+      <div className="mt-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        <CopyButton text={text} title="질문 복사" />
+      </div>
     </div>
   );
 }
@@ -606,15 +665,14 @@ export function ChatMainPage() {
               <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
                 {messages.map((m) =>
                   m.role === "user" ? (
-                    <div key={m.id} className="flex justify-end">
-                      <div className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md">
-                        {m.content}
-                      </div>
-                    </div>
+                    <UserBubble key={m.id} text={m.content} />
                   ) : (
-                    <div key={m.id}>
+                    <div key={m.id} className="group select-text">
                       {m.steps && m.steps.length > 0 && <StepTrace steps={m.steps} />}
                       <ChatMarkdown content={m.content} />
+                      <div className="mt-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                        <CopyButton text={m.content} title="답변 복사" />
+                      </div>
                       {m.sources.length > 0 && (
                         <SourceCitations
                           sources={m.sources}
@@ -626,13 +684,7 @@ export function ChatMainPage() {
                   ),
                 )}
 
-                {showPendingQuestion && (
-                  <div className="flex justify-end">
-                    <div className="max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md">
-                      {pending.question}
-                    </div>
-                  </div>
-                )}
+                {showPendingQuestion && <UserBubble text={pending.question} />}
                 {streaming && pending && visibleDraft === "" && (
                   <StepTimeline steps={pending.steps} />
                 )}

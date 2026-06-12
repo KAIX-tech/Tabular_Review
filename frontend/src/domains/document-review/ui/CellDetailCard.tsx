@@ -73,10 +73,12 @@ export const CellDetailCard: React.FC<{
             selected={false}
           />
         ) : (
+          // Short values (수치/날짜/짧은 텍스트) read as a headline; sentence-length
+          // text extractions drop to body size/weight so they read as prose.
           <p
-            className={`text-lg leading-relaxed font-medium text-ink break-words ${
-              type === "number" || type === "date" ? "tabular-nums" : ""
-            }`}
+            className={`leading-relaxed text-ink break-words ${
+              type === "text" && data.value.length > 40 ? "text-[15px]" : "text-lg font-medium"
+            } ${type === "number" || type === "date" ? "tabular-nums" : ""}`}
           >
             {data.value || <span className="text-ink-3 text-sm font-normal">값 없음</span>}
           </p>
