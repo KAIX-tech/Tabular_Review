@@ -129,6 +129,14 @@ mark {
   mix-blend-mode: multiply;
 }
 
+/* User question bubble: solid-blue selection — the global soft-blue
+   ::selection is invisible against the bubble's soft-blue background. */
+.kalex-user-bubble::selection,
+.kalex-user-bubble *::selection {
+  background-color: rgb(var(--primary));
+  color: white;
+}
+
 /* Cited-passage highlight in the document viewer (CSS Custom Highlight API). */
 ::highlight(kalex-quote) {
   /* Quiet blue accent (--primary), matching selection states elsewhere. */

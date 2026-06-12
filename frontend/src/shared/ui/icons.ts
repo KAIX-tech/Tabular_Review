@@ -50,4 +50,5 @@ export {
   ArrowUp,
   ExternalLink,
   Pencil,
+  Copy,
 } from "lucide-react";
