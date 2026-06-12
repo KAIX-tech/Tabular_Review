@@ -28,9 +28,9 @@ import { useChatSessionsStore } from "../model/chat-sessions.store";
 import type { ChatMessage, ChatSource, ChatStep } from "../model/types";
 
 const SUGGESTED = [
-  "주주총회 특별결의가 필요한 거래는?",
-  "Change of Control 조항이 있는 계약은?",
-  "법률실사에서 우발부채 리스크가 지적된 문서는?",
+  "주식매매계약서(SPA)를 찾아줘",
+  "법률실사 주요 이슈가 정리된 문서를 찾아줘",
+  "Change of Control 조항이 포함된 계약서를 찾아줘",
 ];
 
 /** In-flight agent turn: the question, live steps/draft, a terminal error (D9). */
