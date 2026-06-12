@@ -6,7 +6,7 @@ import {
   chatAnswerEventSchema,
   chatStepSchema,
 } from "../model/types";
-import { MOCK_STEPS, mockAppendExchange } from "./chat.fixtures";
+import { MOCK_STEPS, mockAnswerContent, mockAppendExchange } from "./chat.fixtures";
 
 /**
  * Agent message streaming (docs/phase-4-chat-plan.md §4, D4/D9).
@@ -38,12 +38,15 @@ export async function sendChatMessageStream(
       handlers.onStep(step);
     }
     await new Promise((resolve) => setTimeout(resolve, 350));
-    const assistant = mockAppendExchange(sessionId, content);
     // Simulate token streaming so the typing feel is visible offline too.
-    for (const piece of assistant.content.match(/.{1,12}/gs) ?? []) {
+    for (const piece of mockAnswerContent(content).match(/.{1,12}/gs) ?? []) {
       await new Promise((resolve) => setTimeout(resolve, 40));
       handlers.onDelta(piece);
     }
+    // Commit to the store only now — mirroring the server, which persists the
+    // assistant message at stream end (a session-detail refetch mid-stream must
+    // not surface the finished answer under the still-animating draft).
+    const assistant = mockAppendExchange(sessionId, content);
     handlers.onAnswer({ content: assistant.content, sources: assistant.sources });
     handlers.onDone(assistant.id);
     return;
