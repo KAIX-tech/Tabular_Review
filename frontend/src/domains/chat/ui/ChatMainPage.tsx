@@ -14,7 +14,7 @@ import {
 } from "@/shared/ui/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { isValidElement, useEffect, useRef, useState } from "react";
+import { createContext, isValidElement, useContext, useEffect, useRef, useState } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -28,9 +28,9 @@ import { useChatSessionsStore } from "../model/chat-sessions.store";
 import type { ChatMessage, ChatSource, ChatStep } from "../model/types";
 
 const SUGGESTED = [
-  "MFN 조항이 가장 유리한 계약은?",
-  "전체 DB에서 가장 흔한 조항은?",
-  "최근 수정된 문서는?",
+  "주식매매계약서(SPA)를 찾아줘",
+  "법률실사 주요 이슈가 정리된 문서를 찾아줘",
+  "Change of Control 조항이 포함된 계약서를 찾아줘",
 ];
 
 /** In-flight agent turn: the question, live steps/draft, a terminal error (D9). */
@@ -74,14 +74,21 @@ const pendingBlocks = (p: PendingTurn): string[] => {
     .filter(Boolean);
 };
 
-// Paced reveal cadence: one block per tick gives a continuous, flowing
-// cascade even when the network delivers blocks in bursts. Kept tight — on
-// the real LLM the next block is often still generating, so added latency
-// here reads as dead air between elements; the word-stagger waves (up to
-// 600ms) overlap across consecutive blocks and carry the continuity.
-const REVEAL_INTERVAL_MS = 60;
-const REVEAL_CATCHUP_MS = 30;
+// Jitter-buffered reveal: the LLM produces blocks at an uneven rhythm (a
+// block every few seconds on the on-prem GLM), so revealing on *arrival*
+// shows chunk → dead air → chunk. Instead, hold a small prebuffer, measure
+// the inter-block arrival gap (EMA), and pace reveals to spread the queue
+// across the expected gap — playback runs slightly behind delivery but
+// steady. Once `done`, drain fast (no point pacing what's fully here).
+const REVEAL_PREBUFFER_BLOCKS = 2;
+const REVEAL_MIN_MS = 60;
+const REVEAL_MAX_MS = 1500;
+const REVEAL_DRAIN_MS = 60;
+const REVEAL_DRAIN_CATCHUP_MS = 30;
 const REVEAL_CATCHUP_THRESHOLD = 3;
+// Word wave stretches toward the arrival gap so typing fills the wait.
+const WAVE_CAP_MIN_MS = 600;
+const WAVE_CAP_MAX_MS = 2000;
 
 // Chat-bubble markdown styling (the agent answers in markdown — headings,
 // tables, lists). Sized for chat (text-sm) vs the document viewer's article.
@@ -132,12 +139,15 @@ const CHAT_MD_COMPONENTS: Components = {
 // incremental animation-delay so the block surfaces as a flowing wave (like
 // modern LLM chats) instead of popping in as one unit. React keeps existing
 // block DOM across streaming re-renders, so only new blocks wave in.
+// The cap stretches toward the measured block-arrival gap (WaveCapContext) so
+// slow generation reads as continuous typing instead of pop → wait → pop.
 const WORD_STAGGER_MS = 24;
-const WORD_STAGGER_CAP_MS = 600;
+const WaveCapContext = createContext(WAVE_CAP_MIN_MS);
 
 function Stagger({ children }: { children: React.ReactNode }) {
+  const cap = useContext(WaveCapContext);
   let index = 0;
-  const delay = () => `${Math.min(index++ * WORD_STAGGER_MS, WORD_STAGGER_CAP_MS)}ms`;
+  const delay = () => `${Math.min(index++ * WORD_STAGGER_MS, cap)}ms`;
   const wrap = (node: React.ReactNode, key?: string | number): React.ReactNode => {
     if (typeof node === "string") {
       return node.split(/(\s+)/).map((part, k) =>
@@ -200,23 +210,37 @@ const STREAM_MD_COMPONENTS: Components = {
   ),
 };
 
-function ChatMarkdown({ content, animated = false }: { content: string; animated?: boolean }) {
+function ChatMarkdown({
+  content,
+  animated = false,
+  waveCapMs = WAVE_CAP_MIN_MS,
+}: {
+  content: string;
+  animated?: boolean;
+  /** Word-wave length for newly mounted blocks (jitter-buffer pacing hint). */
+  waveCapMs?: number;
+}) {
   // `animated` (streaming draft): word-stagger for text blocks + block fade
   // for container constructs (.chat-fade-blocks). Finished messages render
   // statically — blocks already in the DOM keep their nodes across streaming
   // re-renders, so only newly arrived content animates.
   return (
     <div className={`break-words ${animated ? "chat-fade-blocks" : ""}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={animated ? STREAM_MD_COMPONENTS : CHAT_MD_COMPONENTS}
-      >
-        {content}
-      </ReactMarkdown>
+      <WaveCapContext.Provider value={waveCapMs}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={animated ? STREAM_MD_COMPONENTS : CHAT_MD_COMPONENTS}
+        >
+          {content}
+        </ReactMarkdown>
+      </WaveCapContext.Provider>
     </div>
   );
 }
 
+// Auto-growing composer: 1 line tall, grows with content up to ~5 lines
+// (max-h-40) then scrolls inside. Enter sends, Shift+Enter inserts a newline,
+// and Enter during IME composition (한글 조합 중) never sends.
 function Composer({
   value,
   onChange,
@@ -228,16 +252,32 @@ function Composer({
   onSend: () => void;
   disabled: boolean;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [value]);
   return (
-    <div className="relative flex items-center">
-      <input
+    // The pill is the container; textarea and buttons are separate flex
+    // columns inside it, so the textarea's scrollbar sits left of the buttons.
+    <div className="flex items-end gap-2 bg-surface border border-border rounded-2xl shadow-card pl-5 pr-2.5 py-2.5 transition focus-within:ring-2 focus-within:ring-primary/20">
+      <textarea
+        ref={ref}
+        rows={1}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && onSend()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            onSend();
+          }
+        }}
         placeholder="전체 Document DB에 대해 무엇이든 물어보세요…"
-        className="w-full h-14 bg-surface border border-border rounded-2xl pl-5 pr-[5.5rem] text-[15px] text-ink placeholder:text-ink-3 shadow-card transition focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="flex-1 min-w-0 bg-transparent py-1.5 text-[15px] leading-6 text-ink placeholder:text-ink-3 focus:outline-none resize-none max-h-40 overflow-y-auto"
       />
-      <div className="absolute right-2.5 flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         <button type="button" title="첨부" className="tr-icon-btn h-9 w-9">
           <Paperclip className="w-4 h-4" strokeWidth={1.75} />
         </button>
@@ -333,7 +373,7 @@ function CopyButton({
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="group flex flex-col items-end">
-      <div className="kalex-user-bubble max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md select-text">
+      <div className="kalex-user-bubble max-w-[80%] px-4 py-2.5 text-sm leading-relaxed bg-primary-soft text-primary rounded-2xl rounded-tr-md select-text whitespace-pre-wrap break-words">
         {text}
       </div>
       <div className="mt-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
@@ -590,10 +630,39 @@ export function ChatMainPage() {
   };
 
   const isEmpty = messages.length === 0 && pending === null;
-  // Paced cascade: blocks become *eligible* as they complete, and are revealed
-  // one at a time so the fade-in flows continuously even on bursty delivery.
+  // Jitter-buffered cascade: blocks become *eligible* as they complete; we
+  // measure their arrival rhythm and play them back slightly behind delivery
+  // at a steady pace (see constants above).
   const blocks = pending && !pending.error ? pendingBlocks(pending) : [];
   const visibleDraft = streaming && pending ? blocks.slice(0, pending.revealed).join("\n\n") : "";
+  // Inter-block arrival gap (EMA). Refs, not state — updated per arrival, read
+  // by the reveal timer; the timer firing re-renders anyway.
+  const lastLenRef = useRef(0);
+  const lastArrivalRef = useRef(0);
+  const emaGapRef = useRef(0);
+  const [waveCapMs, setWaveCapMs] = useState(WAVE_CAP_MIN_MS);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: arrival tracking is keyed to count only
+  useEffect(() => {
+    if (!pending || pending.error) {
+      lastLenRef.current = 0;
+      lastArrivalRef.current = 0;
+      emaGapRef.current = 0;
+      return;
+    }
+    if (blocks.length > lastLenRef.current) {
+      const now = Date.now();
+      if (lastArrivalRef.current > 0) {
+        const gap = (now - lastArrivalRef.current) / (blocks.length - lastLenRef.current);
+        emaGapRef.current = emaGapRef.current ? 0.7 * emaGapRef.current + 0.3 * gap : gap;
+        // Stretch the word wave toward the arrival gap so typing fills the wait.
+        setWaveCapMs(
+          Math.round(Math.min(WAVE_CAP_MAX_MS, Math.max(WAVE_CAP_MIN_MS, emaGapRef.current * 0.8))),
+        );
+      }
+      lastArrivalRef.current = now;
+      lastLenRef.current = blocks.length;
+    }
+  }, [pending?.error, blocks.length, pending === null]);
   useEffect(() => {
     if (!pending || pending.error) return;
     if (pending.revealed >= blocks.length) {
@@ -604,9 +673,23 @@ export function ChatMainPage() {
       return;
     }
     const behind = blocks.length - pending.revealed;
+    let delay: number;
+    if (pending.done) {
+      // Everything is here — drain fast.
+      delay = behind > REVEAL_CATCHUP_THRESHOLD ? REVEAL_DRAIN_CATCHUP_MS : REVEAL_DRAIN_MS;
+    } else if (pending.revealed === 0 && blocks.length < REVEAL_PREBUFFER_BLOCKS) {
+      // Prebuffer: hold playback until a small queue exists (or `done` lands) —
+      // this lag is what the steady pace below spends.
+      return;
+    } else {
+      // Spread the queue across the expected arrival gap; never slower than
+      // one block per gap, never faster than the burst floor.
+      const gap = emaGapRef.current || REVEAL_MIN_MS;
+      delay = Math.round(Math.min(REVEAL_MAX_MS, Math.max(REVEAL_MIN_MS, gap / (behind + 1))));
+    }
     const timer = window.setTimeout(
       () => setPending((p) => (p ? { ...p, revealed: p.revealed + 1 } : p)),
-      behind > REVEAL_CATCHUP_THRESHOLD ? REVEAL_CATCHUP_MS : REVEAL_INTERVAL_MS,
+      delay,
     );
     return () => window.clearTimeout(timer);
     // Deliberately keyed to block COUNT (not the draft text) so per-token
@@ -690,7 +773,7 @@ export function ChatMainPage() {
                 )}
                 {streaming && pending && visibleDraft !== "" && (
                   <div>
-                    <ChatMarkdown content={visibleDraft} animated />
+                    <ChatMarkdown content={visibleDraft} animated waveCapMs={waveCapMs} />
                     <GeneratingDots className="mt-2" />
                   </div>
                 )}

@@ -13,6 +13,7 @@ question is already saved, nothing else is.
 from __future__ import annotations
 
 import functools
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
@@ -316,6 +317,12 @@ class ChatAgentRunner:
                                         summary=_STEP_LABELS.get(call["name"], call["name"]),
                                     )
                                     steps.append(step)
+                                    # INFO so prod logs show the tool-call cadence
+                                    # (loop diagnosis without Langfuse access).
+                                    logger.info(
+                                        "chat step %d: %s args=%s (session=%s)",
+                                        step.step, step.tool, step.args, session_id,
+                                    )
                                     yield StepEvent(step)
                             elif _message_text(msg):
                                 final_text = _message_text(msg)
@@ -447,6 +454,32 @@ def _guarded(fn: Any) -> Any:
     return wrapper
 
 
+# A model stuck in a loop re-issues the *same* call (same tool, same args)
+# round after round — each round re-streams a near-identical preamble, which
+# the user sees as the answer "generating over and over". Allow one repeat
+# (legitimate re-checks happen), then short-circuit with a correction.
+_MAX_IDENTICAL_CALLS = 2
+
+
+def _loop_guarded(name: str, fn: Any, counts: dict[tuple[str, str], int]) -> Any:
+    @functools.wraps(fn)
+    async def wrapper(**kwargs: Any) -> Any:
+        key = (name, json.dumps(kwargs, sort_keys=True, ensure_ascii=False, default=str))
+        counts[key] = counts.get(key, 0) + 1
+        if counts[key] > _MAX_IDENTICAL_CALLS:
+            logger.warning("chat tool loop blocked: %s call #%d %s", name, counts[key], key[1])
+            return {
+                "error": (
+                    f"'{name}' 도구를 동일한 인자로 이미 {_MAX_IDENTICAL_CALLS}회 호출했습니다. "
+                    "같은 호출을 반복하지 마세요. 다른 인자나 다른 도구를 사용하거나, "
+                    "지금까지 수집한 근거만으로 최종 답변을 작성하세요."
+                )
+            }
+        return await fn(**kwargs)
+
+    return wrapper
+
+
 def _build_tools(
     toolset: AgentToolset, registry: SourceRegistry, scope_id: UUID | None
 ) -> list[StructuredTool]:
@@ -454,8 +487,11 @@ def _build_tools(
 
     Wrappers enforce the session scope (D7), record every chunk/cell id the
     agent saw into ``registry`` (citation validation + fallback, D10), and are
-    wrapped by ``_guarded`` so argument mistakes come back as error payloads.
+    wrapped by ``_guarded`` (argument mistakes come back as error payloads) +
+    ``_loop_guarded`` (identical repeated calls are short-circuited).
     """
+
+    call_counts: dict[tuple[str, str], int] = {}
 
     def _effective_db(document_db_id: str | None) -> UUID | None:
         if scope_id is not None:
@@ -531,24 +567,24 @@ def _build_tools(
 
     return [
         StructuredTool.from_function(
-            coroutine=_guarded(list_document_dbs),
+            coroutine=_guarded(_loop_guarded("list_document_dbs", list_document_dbs, call_counts)),
             name="list_document_dbs",
             description="모든 Document DB(워크스페이스) 목록과 문서/컬럼 수를 조회한다.",
         ),
         StructuredTool.from_function(
-            coroutine=_guarded(list_columns),
+            coroutine=_guarded(_loop_guarded("list_columns", list_columns, call_counts)),
             name="list_columns",
             description="한 Document DB의 추출 스키마(컬럼 정의: 이름/타입/프롬프트)를 조회한다.",
             args_schema=_ListColumnsArgs,
         ),
         StructuredTool.from_function(
-            coroutine=_guarded(list_documents),
+            coroutine=_guarded(_loop_guarded("list_documents", list_documents, call_counts)),
             name="list_documents",
             description="한 Document DB에 들어있는 문서 목록(이름/상태)을 조회한다.",
             args_schema=_ListDocumentsArgs,
         ),
         StructuredTool.from_function(
-            coroutine=_guarded(query_cells),
+            coroutine=_guarded(_loop_guarded("query_cells", query_cells, call_counts)),
             name="query_cells",
             description=(
                 "한 Document DB의 추출 그리드 값(문서×컬럼 셀)을 조회한다. "
@@ -557,7 +593,7 @@ def _build_tools(
             args_schema=_QueryCellsArgs,
         ),
         StructuredTool.from_function(
-            coroutine=_guarded(search_chunks),
+            coroutine=_guarded(_loop_guarded("search_chunks", search_chunks, call_counts)),
             name="search_chunks",
             description=(
                 "원문 청크를 시맨틱 검색한다. 비정형 질문(조항 내용/원문 근거)에 사용. "
@@ -566,7 +602,7 @@ def _build_tools(
             args_schema=_SearchChunksArgs,
         ),
         StructuredTool.from_function(
-            coroutine=_guarded(get_document),
+            coroutine=_guarded(_loop_guarded("get_document", get_document, call_counts)),
             name="get_document",
             description="문서 markdown의 슬라이스(offset/length)를 읽는다. 전문 반환은 불가.",
             args_schema=_GetDocumentArgs,
