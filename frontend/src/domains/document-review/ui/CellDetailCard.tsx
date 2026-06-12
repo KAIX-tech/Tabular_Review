@@ -1,6 +1,6 @@
 import type React from "react";
 import type { ColumnType } from "../model/types";
-import { CellValue } from "./CellValue";
+import { CellValue, structuredListItems } from "./CellValue";
 
 /**
  * Display-only detail of one extracted cell: column, typed value, confidence,
@@ -37,8 +37,10 @@ const CONFIDENCE_LABEL: Record<string, string> = {
 /** Infer a render type from the normalized value when the column type is unknown. */
 function inferType(data: CellDetailData): ColumnType {
   if (data.columnType) return data.columnType;
-  if (Array.isArray(data.valueJson)) return "list";
   if (typeof data.valueJson === "boolean") return "boolean";
+  // Covers valueJson arrays AND legacy rows with a JSON array serialized into
+  // the value string (the chat cell drawer has no column type to go on).
+  if (structuredListItems(data.value, data.valueJson)) return "list";
   return "text";
 }
 

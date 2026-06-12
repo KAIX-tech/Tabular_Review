@@ -344,8 +344,16 @@ function SourceCitations({
 }
 
 /** Cell-citation detail in the source drawer — the same card the admin
- *  verification sidebar uses (값/신뢰도/추론/출처), loaded read-only by id. */
-function ChatCellSourceDetail({ source }: { source: ChatSource }) {
+ *  verification sidebar uses (값/신뢰도/추론/출처), loaded read-only by id.
+ *  `onOpenQuote` (set when the source can be located in a document) makes the
+ *  AI-추론 citation chip swap the drawer to the document viewer. */
+function ChatCellSourceDetail({
+  source,
+  onOpenQuote,
+}: {
+  source: ChatSource;
+  onOpenQuote?: (quote: string) => void;
+}) {
   const { data: cell, isLoading } = useCellDetail(source.cellId);
   if (isLoading) {
     return (
@@ -372,6 +380,7 @@ function ChatCellSourceDetail({ source }: { source: ChatSource }) {
           ? "Low"
           : null;
   const cellSource = cell.sources[0];
+  const quote = cellSource?.quote ?? source.quote;
   return (
     <CellDetailCard
       data={{
@@ -380,9 +389,10 @@ function ChatCellSourceDetail({ source }: { source: ChatSource }) {
         valueJson: cell.valueJson,
         confidence,
         reasoning: cell.reasoning,
-        quote: cellSource?.quote ?? source.quote,
+        quote,
         page: cellSource?.page ?? null,
       }}
+      onOpenSource={onOpenQuote && quote ? () => onOpenQuote(quote) : undefined}
     />
   );
 }
@@ -403,6 +413,9 @@ export function ChatMainPage() {
   // `source` holds the last shown citation (kept for smooth slide-out); `panelOpen` toggles it.
   const [source, setSource] = useState<ChatSource | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Cell drawer's 원문 view: set when the AI-추론 citation chip is clicked —
+  // swaps the drawer to the document viewer with this quote highlighted.
+  const [cellQuote, setCellQuote] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
 
@@ -434,6 +447,7 @@ export function ChatMainPage() {
 
   const openSource = (s: ChatSource) => {
     setSource(s);
+    setCellQuote(null);
     setPanelOpen(true);
   };
 
@@ -667,20 +681,25 @@ export function ChatMainPage() {
       <aside
         ref={drawerRef}
         className={`absolute top-0 right-0 h-full ${
-          source?.kind === "chunk" && source.documentId ? "w-[600px] max-w-[90vw]" : "w-[360px]"
+          source?.documentId && (source.kind === "chunk" || cellQuote)
+            ? "w-[600px] max-w-[90vw]"
+            : "w-[360px]"
         } bg-surface border-l border-border shadow-popover flex flex-col transition-transform duration-300 ease-out ${
           panelOpen ? "translate-x-0" : "translate-x-full"
         }`}
         aria-hidden={!panelOpen}
       >
         {source &&
-          (source.kind === "chunk" && source.documentId ? (
+          (source.documentId && (source.kind === "chunk" || cellQuote) ? (
             <DocumentViewer
               documentId={source.documentId}
               name={source.documentName ?? "문서"}
               status="ready"
-              onClose={() => setPanelOpen(false)}
-              highlightQuote={source.quote}
+              onClose={() => {
+                setPanelOpen(false);
+                setCellQuote(null);
+              }}
+              highlightQuote={source.kind === "chunk" ? source.quote : (cellQuote ?? undefined)}
             />
           ) : (
             <>
@@ -704,7 +723,10 @@ export function ChatMainPage() {
               </div>
               <div className="flex-1 overflow-y-auto p-5">
                 {source.kind === "cell" ? (
-                  <ChatCellSourceDetail source={source} />
+                  <ChatCellSourceDetail
+                    source={source}
+                    onOpenQuote={source.documentId ? setCellQuote : undefined}
+                  />
                 ) : (
                   <p className="text-sm leading-relaxed text-ink">
                     <mark className="bg-primary/15 text-ink px-0.5 rounded">{source.quote}</mark>

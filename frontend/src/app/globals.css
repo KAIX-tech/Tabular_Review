@@ -192,13 +192,26 @@ mark {
   min-height: 0;
 }
 
+/* Reduced motion: keep the opacity fades but drop positional movement
+   (opacity-only keyframes override the base ones while the query matches).
+   Full `animation: none` is too blunt here — 망분리/VDI(원격 데스크톱) 환경은
+   OS가 reduce를 강제 보고하므로, 내부망 사용자가 스트리밍 피드백을 아예 잃는다.
+   The collapse slide and generating dots stay as-is (small, functional). */
 @media (prefers-reduced-motion: reduce) {
-  .kalex-word,
-  .chat-fade-blocks :is(table, blockquote, pre, hr),
-  .kalex-fade-in {
-    animation: none;
+  @keyframes kalex-block-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
-  .kalex-collapse {
-    transition: none;
+  @keyframes kalex-word-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
