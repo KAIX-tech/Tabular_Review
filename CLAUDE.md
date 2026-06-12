@@ -31,7 +31,7 @@ was retired once the screens shipped; the remaining chat-UI criteria live in
 .
 ├── frontend/      Next.js App Router + Feature-Sliced Design (FSD). See frontend/CLAUDE.md
 ├── backend/       FastAPI + DDD (bounded contexts, ports & adapters). See backend/CLAUDE.md
-├── docs/          domain-design.md = 도메인/테이블/API 진실원천; phase-4-chat-plan.md = 챗(Agentic Search) 구현 계획 + 챗 UI 기준
+├── docs/          domain-design.md = 도메인/테이블/API 진실원천; phase-4-chat-plan.md = 챗 구현 계획(완료) + 챗 UI 기준; phase-5-agent-quality-plan.md = 현재 로드맵(에이전트 품질 고도화)
 ├── docker-compose.yml   Runs both services
 ├── .env.example         Compose-level env (copy to .env)
 └── start-backend.sh     Local backend dev (venv + uvicorn, MPS on macOS)
@@ -94,6 +94,8 @@ The **chat-first user surface**
 (`frontend/src/domains/chat/ui/ChatMainPage.tsx`) is the product's primary
 surface; the admin grid (document insert + column management,
 `frontend/src/domains/document-db/ui/DocumentDbReviewPage.tsx`) is the
-DB-building tool. Backend contexts `document_db` / `ingestion` / `extraction`
-are implemented; the **`chat` bounded context (Agentic Search) is the current
-top priority** — plan in [docs/phase-4-chat-plan.md](docs/phase-4-chat-plan.md).
+DB-building tool. Backend contexts `document_db` / `ingestion` / `extraction` /
+`chat` are all implemented (Phase 4 complete — chat is full-stack live in prod).
+**Current focus: Phase 5 agent-quality work** (find_documents tool, query_cells
+server-side filters, hybrid search + reranker, extraction self-check) — plan in
+[docs/phase-5-agent-quality-plan.md](docs/phase-5-agent-quality-plan.md).
