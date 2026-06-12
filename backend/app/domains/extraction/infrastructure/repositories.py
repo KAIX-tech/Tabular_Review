@@ -204,6 +204,10 @@ class SqlAlchemyCellRepository(CellRepository):
             orm.value_json = value_json
         orm.review_status = review_status.value
         await self._session.flush()
+        # updated_at is SQL-side onupdate → the flush expires it, and the sync
+        # attribute access in _to_cell would lazy-reload → MissingGreenlet.
+        # Reload just that column (the loaded sources collection stays intact).
+        await self._session.refresh(orm, attribute_names=["updated_at"])
         return _to_cell(orm)
 
 

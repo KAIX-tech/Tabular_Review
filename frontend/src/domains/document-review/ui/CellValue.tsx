@@ -15,11 +15,43 @@ import type { ColumnType } from "../model/types";
 const POSITIVE = /^(true|yes|y|있음|예|포함|해당|가능|동의)/i;
 const NEGATIVE = /^(false|no|n|없음|아니오|아니요|미포함|해당\s*없음|불가)/i;
 
-function listItems(value: string, valueJson: unknown): string[] {
+function toItems(arr: unknown[]): string[] {
+  return arr.map((v) => String(v).trim()).filter(Boolean);
+}
+
+function parseJsonArray(text: string): string[] | null {
+  const s = text.trim();
+  if (!s.startsWith("[") || !s.endsWith("]")) return null;
+  try {
+    const parsed = JSON.parse(s);
+    if (!Array.isArray(parsed)) return null;
+    const items = toItems(parsed);
+    return items.length > 0 ? items : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Structured list items of a cell, or null when the value isn't list-shaped.
+ * Handles legacy rows where the model's JSON array was stored serialized into
+ * the value string (value_json null) — parsing also unescapes \n correctly.
+ */
+export function structuredListItems(value: string, valueJson: unknown): string[] | null {
   if (Array.isArray(valueJson)) {
-    const items = valueJson.map((v) => String(v).trim()).filter(Boolean);
+    const items = toItems(valueJson);
     if (items.length > 0) return items;
   }
+  if (typeof valueJson === "string") {
+    const parsed = parseJsonArray(valueJson);
+    if (parsed) return parsed;
+  }
+  return parseJsonArray(value);
+}
+
+function listItems(value: string, valueJson: unknown): string[] {
+  const structured = structuredListItems(value, valueJson);
+  if (structured) return structured;
   return value
     .split(/[\n;,]|·/)
     .map((s) => s.trim())

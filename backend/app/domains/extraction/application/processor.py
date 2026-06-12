@@ -16,6 +16,7 @@ It depends only on domain ports, never on infrastructure.
 
 from __future__ import annotations
 
+import json
 import re
 from uuid import UUID
 
@@ -24,7 +25,7 @@ from collections.abc import Callable
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.logging import get_logger
-from app.domains.document_db.domain.models import DocumentColumn
+from app.domains.document_db.domain.models import ColumnDataType, DocumentColumn
 from app.domains.document_db.domain.ports import DocumentColumnRepository
 from app.domains.embedding.domain.ports import EmbeddingError, EmbeddingPort
 from app.domains.extraction.domain.models import (
@@ -62,6 +63,7 @@ _SYSTEM_PROMPT = (
     '{"columns":[{"columnId":"...","value":"...","confidence":"high|medium|low",'
     '"quote":"...","reasoning":"..."}]}. '
     "값을 찾지 못하면 value는 빈 문자열, confidence는 low로. "
+    'list/multi_select 타입 컬럼의 value는 JSON 배열로 반환하세요 (예: ["항목1","항목2"]). '
     "quote는 문서에서 그대로 발췌한 근거 스니펫이어야 합니다."
 )
 
@@ -71,6 +73,33 @@ def _parse_confidence(value: object) -> Confidence | None:
         return Confidence(str(value).lower())
     except ValueError:
         return None
+
+
+def _normalize_value(raw: object, data_type: ColumnDataType) -> tuple[str | None, object | None]:
+    """Split the model's value into display text + structured value_json.
+
+    List-ish columns come back either as a real JSON array or as an array
+    serialized into the value string — both must land in value_json (the UI
+    renders list cells from it), with value as newline-joined display text.
+    """
+    if isinstance(raw, list):
+        items = [str(v).strip() for v in raw if str(v).strip()]
+        return ("\n".join(items) or None), (items or None)
+    text = (str(raw or "")).strip()
+    if not text:
+        return None, None
+    listish = data_type in (
+        ColumnDataType.LIST, ColumnDataType.MULTI_SELECT, ColumnDataType.SINGLE_SELECT
+    )
+    if (listish or text.startswith("[")) and text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            return text, None
+        if isinstance(parsed, list):
+            items = [str(v).strip() for v in parsed if str(v).strip()]
+            return ("\n".join(items) or None), (items or None)
+    return text, None
 
 
 def _match_chunk(quote: str, chunks: list[DocumentChunk]) -> DocumentChunk | None:
@@ -281,7 +310,7 @@ class ExtractionProcessor:
                 run_id=run_id, sources=[],
             )
             return
-        value = (str(result.get("value") or "")).strip() or None
+        value, value_json = _normalize_value(result.get("value"), col.data_type)
         quote = (str(result.get("quote") or "")).strip()
         sources: list[NewCellSource] = []
         if quote:
@@ -299,7 +328,7 @@ class ExtractionProcessor:
         await cells.save_result(
             doc_id, col.id,
             value=value,
-            value_json=None,
+            value_json=value_json,
             confidence=_parse_confidence(result.get("confidence")),
             reasoning=result.get("reasoning"),
             extraction_method=method,
