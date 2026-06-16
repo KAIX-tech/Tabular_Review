@@ -81,3 +81,30 @@ class DocumentColumnOrm(Base):
     )
 
     document_db: Mapped[DocumentDbOrm] = relationship(back_populates="columns")
+
+
+class ColumnTemplateOrm(Base):
+    """Reusable column template (Column Library) — global, no DB scoping."""
+
+    __tablename__ = "column_template"
+    __table_args__ = (
+        CheckConstraint(
+            "data_type IN " + str(_DATA_TYPES), name="ck_column_template_data_type"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    data_type: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # FK to app_user added when the identity context lands (docs §2.2 / D6).
+    created_by: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
