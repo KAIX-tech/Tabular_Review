@@ -1,5 +1,5 @@
+import type { Column, ColumnType, DocumentFile, ExtractionResult } from "@/domains/document-review";
 import { z } from "zod";
-import type { Column, DocumentFile, ExtractionResult } from "@/domains/document-review";
 
 // A Document DB is one domain == one document type (flat IA), e.g. "계약서", "약관".
 export const documentDbSchema = z.object({
@@ -27,6 +27,43 @@ export const columnResponseSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 export type ColumnResponse = z.infer<typeof columnResponseSchema>;
+
+// Backend ColumnTemplate response shape (Column Library; validated in
+// api/column-templates.api.ts). Global, firm-wide — see domain-design §2.3a.
+export const columnTemplateResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  dataType: z.string(),
+  prompt: z.string(),
+  category: z.string().nullish(),
+  createdAt: z.string().datetime(),
+});
+export type ColumnTemplateResponse = z.infer<typeof columnTemplateResponseSchema>;
+
+// UI shape (grid uses `type`, the 5-type ColumnType). Mapped from the backend's
+// 7-type `dataType` in api/column-templates.api.ts (selects → "list").
+export interface ColumnTemplate {
+  id: string;
+  name: string;
+  type: ColumnType;
+  prompt: string;
+  category?: string;
+  createdAt: string;
+}
+
+export interface ColumnTemplateInput {
+  name: string;
+  type: ColumnType;
+  prompt: string;
+  category?: string;
+}
+
+// Column Library JSON export/import envelope (backward-compatible with the
+// legacy localStorage format that used `type`).
+export interface ColumnLibraryFile {
+  version: 1;
+  templates: ColumnTemplate[];
+}
 
 // Project export/import file format (not an API entity).
 export interface SavedProject {

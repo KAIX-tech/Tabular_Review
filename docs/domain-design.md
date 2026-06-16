@@ -773,6 +773,7 @@ create table chat_source (
 | `ChatSource` | `chat_source`(+조인) | documentDb/documentName은 조인으로 |
 | `ChatMessage.role:"model"` | `assistant` | 어댑터에서 매핑 |
 | `chatSession`(localStorage) | `chat_session`(서버) | 영속 위치 이전 |
+| Column Library(localStorage) | `column_template`(서버, 전역) | 영속 위치 이전(§2.3a). 1회성 마이그레이션 + import/export는 `:import` API로 재배선 |
 | `SavedProject`(export 파일) | — | 로컬 export 포맷은 유지(API 엔티티 아님) |
 
 ---
@@ -835,6 +836,14 @@ create table chat_source (
    탐색해 출처와 함께 답한다. 추출 그리드(기능명 "Tabular Review")는 **Agent가 조회할 정형
    데이터를 만들고 검증하는 DB화 수단(Admin 도구)** 으로 위치시킨다 — 기능 범위는 유지하되,
    서술·화면·로드맵의 우선순위는 챗을 기준으로 정렬한다. 제품명 = **Kalex**.
+19. **Column Library = 서버 전역(firm-wide) 라이브러리** → ✅ 재사용 컬럼 템플릿을
+   localStorage(클라 단독)에서 서버 `column_template` 테이블로 이전(§2.3a). 인증 부재(#4/D6)로
+   v1은 **전역 공유**·`created_by` nullable·유저 필터 없음. **추가/삭제/일괄가져오기만**(update는
+   범위 밖). 별개 애그리거트(`document_db_id` 없음, 전용 `ColumnTemplateService`). import/export(JSON)는
+   유지하되 `:import` API로 재배선. 1회성 마이그레이션은 클라가 구 localStorage 키를 읽어 `:import`
+   호출 후 플래그 set(구 키는 복구용으로 보존). **알려진 한계**: 인증 부재로 브라우저별 마이그레이션
+   → 유저 간 중복 가능(수동 삭제 대응, idempotent import는 후속). FSD: 모달·데이터·소비 페이지가
+   모두 `document-db` 슬라이스에 위치(document-review↔document-db 순환 회피).
 
 ### 남은 오픈 퀘스천
 - 멀티테넌트(`org_id`) 도입 시점 — 도입하면 전 테이블에 소급 추가 필요.
