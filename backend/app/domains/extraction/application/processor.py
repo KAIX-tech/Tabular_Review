@@ -64,6 +64,9 @@ _SYSTEM_PROMPT = (
     '"quote":"...","reasoning":"..."}]}. '
     "값을 찾지 못하면 value는 빈 문자열, confidence는 low로. "
     'list/multi_select 타입 컬럼의 value는 JSON 배열로 반환하세요 (예: ["항목1","항목2"]). '
+    "single_select 타입 컬럼은 제공된 '선택지' 중에서 정확히 하나만 골라 그 값을 "
+    "문자열로 반환하세요(배열 아님). 어느 선택지에도 해당하지 않으면 가장 가까운 "
+    "추정값을 value에 넣되 confidence는 반드시 low로 표시하세요. "
     "quote는 문서에서 그대로 발췌한 근거 스니펫이어야 합니다."
 )
 
@@ -75,31 +78,48 @@ def _parse_confidence(value: object) -> Confidence | None:
         return None
 
 
-def _normalize_value(raw: object, data_type: ColumnDataType) -> tuple[str | None, object | None]:
+def _normalize_value(
+    raw: object, data_type: ColumnDataType, options: list[str] | None = None
+) -> tuple[str | None, object | None, bool]:
     """Split the model's value into display text + structured value_json.
 
-    List-ish columns come back either as a real JSON array or as an array
-    serialized into the value string — both must land in value_json (the UI
-    renders list cells from it), with value as newline-joined display text.
+    Returns (value_text, value_json, force_low_confidence).
+
+    - single_select: a **scalar** string (not a list). Validated against the
+      column's options — if the model returns something not in the set, the raw
+      value is kept (no silent snapping) but confidence is forced to low so it
+      surfaces for human review.
+    - list/multi_select: a JSON array (real array or array serialized into the
+      value string) → value_json (the UI renders list cells from it) + value as
+      newline-joined display text.
     """
+    if data_type == ColumnDataType.SINGLE_SELECT:
+        # Scalar choice; if the model wrongly returned an array, take the first.
+        if isinstance(raw, list):
+            raw = raw[0] if raw else ""
+        text = (str(raw or "")).strip()
+        if not text:
+            return None, None, True
+        if options and text not in options:
+            return text, None, True  # off-taxonomy → keep, flag for review
+        return text, None, False
+
     if isinstance(raw, list):
         items = [str(v).strip() for v in raw if str(v).strip()]
-        return ("\n".join(items) or None), (items or None)
+        return ("\n".join(items) or None), (items or None), False
     text = (str(raw or "")).strip()
     if not text:
-        return None, None
-    listish = data_type in (
-        ColumnDataType.LIST, ColumnDataType.MULTI_SELECT, ColumnDataType.SINGLE_SELECT
-    )
+        return None, None, False
+    listish = data_type in (ColumnDataType.LIST, ColumnDataType.MULTI_SELECT)
     if (listish or text.startswith("[")) and text.startswith("[") and text.endswith("]"):
         try:
             parsed = json.loads(text)
         except ValueError:
-            return text, None
+            return text, None, False
         if isinstance(parsed, list):
             items = [str(v).strip() for v in parsed if str(v).strip()]
-            return ("\n".join(items) or None), (items or None)
-    return text, None
+            return ("\n".join(items) or None), (items or None), False
+    return text, None, False
 
 
 def _match_chunk(quote: str, chunks: list[DocumentChunk]) -> DocumentChunk | None:
@@ -289,10 +309,16 @@ class ExtractionProcessor:
 
     @staticmethod
     def _column_spec(columns: list[DocumentColumn]) -> str:
-        return "\n".join(
-            f"- columnId={c.id} | label={c.name} | type={c.data_type.value} | 질문: {c.prompt}"
-            for c in columns
-        )
+        lines: list[str] = []
+        for c in columns:
+            line = f"- columnId={c.id} | label={c.name} | type={c.data_type.value} | 질문: {c.prompt}"
+            if (
+                c.data_type in (ColumnDataType.SINGLE_SELECT, ColumnDataType.MULTI_SELECT)
+                and c.options
+            ):
+                line += f"\n  선택지(이 중에서만 선택): [{' | '.join(c.options)}]"
+            lines.append(line)
+        return "\n".join(lines)
 
     async def _generate(self, content: str, columns: list[DocumentColumn]) -> dict[str, dict]:
         user = f"문서 내용:\n{content}\n\n추출할 컬럼:\n{self._column_spec(columns)}"
@@ -310,7 +336,9 @@ class ExtractionProcessor:
                 run_id=run_id, sources=[],
             )
             return
-        value, value_json = _normalize_value(result.get("value"), col.data_type)
+        value, value_json, force_low = _normalize_value(
+            result.get("value"), col.data_type, col.options
+        )
         quote = (str(result.get("quote") or "")).strip()
         sources: list[NewCellSource] = []
         if quote:
@@ -325,11 +353,12 @@ class ExtractionProcessor:
                     char_end=char_end,
                 )
             ]
+        confidence = Confidence.LOW if force_low else _parse_confidence(result.get("confidence"))
         await cells.save_result(
             doc_id, col.id,
             value=value,
             value_json=value_json,
-            confidence=_parse_confidence(result.get("confidence")),
+            confidence=confidence,
             reasoning=result.get("reasoning"),
             extraction_method=method,
             run_id=run_id,

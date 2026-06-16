@@ -30,7 +30,13 @@ class FakeColumnTemplateRepository(ColumnTemplateRepository):
         return sorted(self._items.values(), key=lambda t: t.created_at)
 
     async def add(
-        self, *, name: str, data_type: ColumnDataType, prompt: str, category: str | None
+        self,
+        *,
+        name: str,
+        data_type: ColumnDataType,
+        prompt: str,
+        category: str | None,
+        options: list[str] | None,
     ) -> ColumnTemplate:
         template = ColumnTemplate(
             id=uuid4(),
@@ -38,6 +44,7 @@ class FakeColumnTemplateRepository(ColumnTemplateRepository):
             data_type=data_type,
             prompt=prompt,
             category=category,
+            options=options,
             created_at=self._now(),
         )
         self._items[template.id] = template
@@ -48,7 +55,11 @@ class FakeColumnTemplateRepository(ColumnTemplateRepository):
         for d in drafts:
             created.append(
                 await self.add(
-                    name=d.name, data_type=d.data_type, prompt=d.prompt, category=d.category
+                    name=d.name,
+                    data_type=d.data_type,
+                    prompt=d.prompt,
+                    category=d.category,
+                    options=d.options,
                 )
             )
         return created

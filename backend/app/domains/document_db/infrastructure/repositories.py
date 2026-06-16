@@ -75,6 +75,7 @@ def _to_template(orm: ColumnTemplateOrm) -> ColumnTemplate:
         data_type=ColumnDataType(orm.data_type),
         prompt=orm.prompt,
         category=orm.category,
+        options=orm.options,
         created_at=orm.created_at,
     )
 
@@ -260,10 +261,20 @@ class SqlAlchemyColumnTemplateRepository(ColumnTemplateRepository):
         return [_to_template(orm) for orm in rows]
 
     async def add(
-        self, *, name: str, data_type: ColumnDataType, prompt: str, category: str | None
+        self,
+        *,
+        name: str,
+        data_type: ColumnDataType,
+        prompt: str,
+        category: str | None,
+        options: list[str] | None,
     ) -> ColumnTemplate:
         orm = ColumnTemplateOrm(
-            name=name, data_type=data_type.value, prompt=prompt, category=category
+            name=name,
+            data_type=data_type.value,
+            prompt=prompt,
+            category=category,
+            options=options,
         )
         self._session.add(orm)
         await self._session.flush()
@@ -277,6 +288,7 @@ class SqlAlchemyColumnTemplateRepository(ColumnTemplateRepository):
                 data_type=_coerce(d.data_type),
                 prompt=d.prompt,
                 category=d.category,
+                options=d.options,
             )
             for d in drafts
         ]

@@ -113,7 +113,13 @@ class ColumnTemplateRepository(ABC):
 
     @abstractmethod
     async def add(
-        self, *, name: str, data_type: ColumnDataType, prompt: str, category: str | None
+        self,
+        *,
+        name: str,
+        data_type: ColumnDataType,
+        prompt: str,
+        category: str | None,
+        options: list[str] | None,
     ) -> ColumnTemplate:
         raise NotImplementedError
 

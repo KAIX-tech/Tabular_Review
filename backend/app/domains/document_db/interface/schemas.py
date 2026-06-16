@@ -110,6 +110,7 @@ class ColumnTemplateCreate(CamelModel):
     data_type: ColumnDataType
     prompt: str
     category: str | None = None
+    options: list[str] | None = None
 
 
 class ColumnTemplateImport(CamelModel):
@@ -124,6 +125,7 @@ class ColumnTemplateResponse(CamelModel):
     data_type: ColumnDataType
     prompt: str
     category: str | None
+    options: list[str] | None
     created_at: IsoDatetime
 
     @classmethod
@@ -134,5 +136,6 @@ class ColumnTemplateResponse(CamelModel):
             data_type=template.data_type,
             prompt=template.prompt,
             category=template.category,
+            options=template.options,
             created_at=template.created_at,
         )

@@ -25,10 +25,16 @@ class ColumnTemplateService:
         return await self._repo.list_all()
 
     async def create_template(
-        self, *, name: str, data_type: ColumnDataType, prompt: str, category: str | None
+        self,
+        *,
+        name: str,
+        data_type: ColumnDataType,
+        prompt: str,
+        category: str | None,
+        options: list[str] | None,
     ) -> ColumnTemplate:
         return await self._repo.add(
-            name=name, data_type=data_type, prompt=prompt, category=category
+            name=name, data_type=data_type, prompt=prompt, category=category, options=options
         )
 
     async def create_many(self, drafts: list[ColumnTemplateDraft]) -> list[ColumnTemplate]:
