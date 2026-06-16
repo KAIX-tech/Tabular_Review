@@ -75,6 +75,7 @@ class ColumnTemplate:
     data_type: ColumnDataType
     prompt: str
     category: str | None
+    options: list[str] | None
     created_at: datetime
 
 
@@ -86,3 +87,4 @@ class ColumnTemplateDraft:
     data_type: ColumnDataType
     prompt: str
     category: str | None = None
+    options: list[str] | None = None

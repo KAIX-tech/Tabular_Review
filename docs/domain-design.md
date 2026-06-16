@@ -148,6 +148,12 @@ DocumentDB의 문서(행)
 > 프론트 `Column.status`(idle/extracting/…)는 **컬럼 자체 상태가 아니라** "이 컬럼의 셀들이 추출 중인가"의
 > UI 파생값 → 서버 `DocumentColumn`은 status를 저장하지 않고 셀/런 상태에서 계산한다.
 
+> **single_select(분류) 종단 활성(§9 #20)**: `single_select` 컬럼은 `options`(통제된 어휘)를
+> 추출 LLM 프롬프트에 **선택지로 주입**하고, 추출값을 **스칼라 문자열**로 저장하며 옵션 집합에
+> 대해 **검증**한다(이탈 시 값 보존 + confidence=low로 사람 검토 유도, 강제 스냅 없음). 사람
+> 검증은 옵션 드롭다운으로 정정. 계층 택소노미는 **종단 리프 경로**("Cat1 > Cat2 > Cat3")를
+> 옵션 문자열로 담아 한 컬럼으로 분류(Category1은 접두사로 롤업). multi_select는 배열 유지.
+
 ### 2.3a ColumnTemplate  *(document_db — Column Library)*
 
 재사용 가능한 컬럼 정의(Column Library). 구조적으로 `DocumentColumn`에서 DB 스코프
@@ -160,9 +166,10 @@ DocumentDB의 문서(행)
 |---|---|---|
 | `id` | uuid (PK) | |
 | `name` | text | 컬럼 제목 |
-| `data_type` | enum(DocumentColumn과 동일 7종) | 프론트 5종 입력, 셀렉트 2종은 후속 |
+| `data_type` | enum(DocumentColumn과 동일 7종) | single_select 분류 컬럼 포함 |
 | `prompt` | text | LLM 추출 지시문 |
 | `category` | text null | "법률"·"재무" 등 분류(클라 필터용) |
+| `options` | jsonb null | select 계열 선택지(분류 택소노미). 템플릿 선택 시 컬럼에 그대로 복제 |
 | `created_by` | uuid null | identity 컨텍스트 후속(D6) — v1 전역, 유저 필터 없음 |
 | `created_at` / `updated_at` | timestamptz | 목록은 `created_at` 정렬 |
 
@@ -545,6 +552,7 @@ create table column_template (           -- 엔티티 ColumnTemplate (Column Lib
     ('text','number','date','boolean','list','single_select','multi_select')),
   prompt text not null,
   category text,
+  options jsonb,                         -- select 계열 선택지(분류 택소노미)
   created_by uuid,                       -- nullable; identity 컨텍스트 후속(D6)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -844,6 +852,13 @@ create table chat_source (
    호출 후 플래그 set(구 키는 복구용으로 보존). **알려진 한계**: 인증 부재로 브라우저별 마이그레이션
    → 유저 간 중복 가능(수동 삭제 대응, idempotent import는 후속). FSD: 모달·데이터·소비 페이지가
    모두 `document-db` 슬라이스에 위치(document-review↔document-db 순환 회피).
+20. **single_select 분류 = 종단 구축** → ✅ 고정 택소노미 분류를 `single_select` 컬럼으로 종단
+   지원(§2.3). `options`를 추출 LLM 프롬프트에 **선택지로 주입**, 추출값은 **스칼라 문자열**로
+   저장하고 옵션 집합에 **검증**(이탈 시 값 보존 + confidence=low, 강제 스냅 없음 → 사람 검토).
+   사람 검증은 옵션 드롭다운. 계층 택소노미는 **종단 리프 경로 단일 컬럼**("Cat1 > Cat2 > Cat3",
+   Category1은 접두사 롤업). ColumnTemplate에 `options` 추가 → 분류 컬럼을 템플릿으로 재사용
+   (선택 시 options째 복제). multi_select는 배열 동작 유지(UI는 후속). 프론트 `ColumnType`에
+   `single_select` 추가(모든 `Record<ColumnType>` 분기 동시 갱신).
 
 ### 남은 오픈 퀘스천
 - 멀티테넌트(`org_id`) 도입 시점 — 도입하면 전 테이블에 소급 추가 필요.

@@ -100,6 +100,7 @@ class ColumnTemplateOrm(Base):
     data_type: Mapped[str] = mapped_column(Text, nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str | None] = mapped_column(Text, nullable=True)
+    options: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     # FK to app_user added when the identity context lands (docs §2.2 / D6).
     created_by: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

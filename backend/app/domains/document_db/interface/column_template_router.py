@@ -45,6 +45,7 @@ async def create_column_template(
         data_type=payload.data_type,
         prompt=payload.prompt,
         category=payload.category,
+        options=payload.options,
     )
     return ColumnTemplateResponse.from_domain(template)
 
@@ -60,7 +61,11 @@ async def import_column_templates(
 ) -> list[ColumnTemplateResponse]:
     drafts = [
         ColumnTemplateDraft(
-            name=t.name, data_type=t.data_type, prompt=t.prompt, category=t.category
+            name=t.name,
+            data_type=t.data_type,
+            prompt=t.prompt,
+            category=t.category,
+            options=t.options,
         )
         for t in payload.templates
     ]

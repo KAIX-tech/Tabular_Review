@@ -54,7 +54,19 @@ def test_create_camel_case_wire_shape(client: TestClient) -> None:
     assert body["dataType"] == "text"
     assert body["category"] == "법률"
     assert body["createdAt"].endswith("Z")
-    assert set(body) == {"id", "name", "dataType", "prompt", "category", "createdAt"}
+    assert set(body) == {"id", "name", "dataType", "prompt", "category", "options", "createdAt"}
+
+
+def test_single_select_template_round_trips_options(client: TestClient) -> None:
+    opts = ["Manufacturing > Automotive > Auto Parts", "Finance > Banking", "Others"]
+    created = client.post(
+        "/column-templates",
+        json={"name": "산업분류", "dataType": "single_select", "prompt": "산업 카테고리", "options": opts},
+    )
+    assert created.status_code == 201
+    assert created.json()["options"] == opts
+    listed = client.get("/column-templates").json()
+    assert listed[0]["options"] == opts
 
 
 @pytest.mark.parametrize(
