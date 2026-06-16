@@ -13,6 +13,8 @@ from uuid import UUID
 
 from app.domains.document_db.domain.models import (
     ColumnDataType,
+    ColumnTemplate,
+    ColumnTemplateDraft,
     DocumentColumn,
     DocumentDb,
     DocumentDbSummary,
@@ -25,6 +27,10 @@ class DocumentDbNotFoundError(Exception):
 
 class DocumentColumnNotFoundError(Exception):
     """Raised when a DocumentColumn does not exist."""
+
+
+class ColumnTemplateNotFoundError(Exception):
+    """Raised when a ColumnTemplate does not exist."""
 
 
 class InvalidColumnOrderError(Exception):
@@ -94,4 +100,29 @@ class DocumentColumnRepository(ABC):
     @abstractmethod
     async def reorder(self, db_id: UUID, ordered_ids: list[UUID]) -> list[DocumentColumn]:
         """Set positions to match ``ordered_ids`` order; returns columns in new order."""
+        raise NotImplementedError
+
+
+class ColumnTemplateRepository(ABC):
+    """Reusable column templates (Column Library) — global, no DB scoping."""
+
+    @abstractmethod
+    async def list_all(self) -> list[ColumnTemplate]:
+        """All templates, oldest first (created_at)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def add(
+        self, *, name: str, data_type: ColumnDataType, prompt: str, category: str | None
+    ) -> ColumnTemplate:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def add_many(self, drafts: list[ColumnTemplateDraft]) -> list[ColumnTemplate]:
+        """Bulk insert (JSON import + one-time localStorage migration)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete(self, template_id: UUID) -> None:
+        """Raises ColumnTemplateNotFoundError if absent."""
         raise NotImplementedError

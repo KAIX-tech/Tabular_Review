@@ -14,6 +14,7 @@ from uuid import UUID
 from app.core.schemas import CamelModel, IsoDatetime
 from app.domains.document_db.domain.models import (
     ColumnDataType,
+    ColumnTemplate,
     DocumentColumn,
     DocumentDbSummary,
 )
@@ -100,4 +101,38 @@ class ColumnResponse(CamelModel):
             position=column.position,
             created_at=column.created_at,
             updated_at=column.updated_at,
+        )
+
+
+# --- ColumnTemplate (Column Library) ---------------------------------------
+class ColumnTemplateCreate(CamelModel):
+    name: str
+    data_type: ColumnDataType
+    prompt: str
+    category: str | None = None
+
+
+class ColumnTemplateImport(CamelModel):
+    """Bulk insert payload (JSON import + one-time localStorage migration)."""
+
+    templates: list[ColumnTemplateCreate]
+
+
+class ColumnTemplateResponse(CamelModel):
+    id: UUID
+    name: str
+    data_type: ColumnDataType
+    prompt: str
+    category: str | None
+    created_at: IsoDatetime
+
+    @classmethod
+    def from_domain(cls, template: ColumnTemplate) -> "ColumnTemplateResponse":
+        return cls(
+            id=template.id,
+            name=template.name,
+            data_type=template.data_type,
+            prompt=template.prompt,
+            category=template.category,
+            created_at=template.created_at,
         )

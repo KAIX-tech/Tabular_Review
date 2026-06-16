@@ -56,7 +56,7 @@ DocumentDB의 문서(행)
 | 컨텍스트 | 책임 | 핵심 엔티티 | 의존(upstream) |
 |---|---|---|---|
 | `identity` | 사용자·소유권 | User | — |
-| `document_db` | 워크스페이스 + 추출 스키마 | DocumentDB, DocumentColumn | identity |
+| `document_db` | 워크스페이스 + 추출 스키마 + 재사용 컬럼 템플릿(Column Library) | DocumentDB, DocumentColumn, ColumnTemplate | identity |
 | `ingestion` | 원본→Markdown→청크→임베딩 적재 | Document, DocumentChunk | document_db, `document_conversion`, `embedding`(인프라) |
 | `extraction` | 셀 단위 추출 실행 + 검증 | Cell, CellSource, ExtractionRun | document_db(컬럼), ingestion(검색), `llm` |
 | `chat` | 대화 + **에이전트 검색(Agentic Search)** — 카탈로그 탐색·정형/비정형 조회 오케스트레이션 | ChatSession, ChatMessage, ChatSource | `document_db`(DB·컬럼), `extraction`(셀), `ingestion`(문서·청크 검색), `llm` |
@@ -147,6 +147,27 @@ DocumentDB의 문서(행)
 
 > 프론트 `Column.status`(idle/extracting/…)는 **컬럼 자체 상태가 아니라** "이 컬럼의 셀들이 추출 중인가"의
 > UI 파생값 → 서버 `DocumentColumn`은 status를 저장하지 않고 셀/런 상태에서 계산한다.
+
+### 2.3a ColumnTemplate  *(document_db — Column Library)*
+
+재사용 가능한 컬럼 정의(Column Library). 구조적으로 `DocumentColumn`에서 DB 스코프
+(`document_db_id`/`position`)를 뺀 것 + `category`. **전역(firm-wide) 공유 라이브러리**로,
+어느 Document DB에도 속하지 않는 **별개 애그리거트**다. 템플릿을 선택하면 해당 DB에
+실제 `DocumentColumn`을 생성한다(복제). 기존엔 브라우저 localStorage에만 있었으나 서버로
+이전(§9 #19).
+
+| 필드 | 타입 | 비고 |
+|---|---|---|
+| `id` | uuid (PK) | |
+| `name` | text | 컬럼 제목 |
+| `data_type` | enum(DocumentColumn과 동일 7종) | 프론트 5종 입력, 셀렉트 2종은 후속 |
+| `prompt` | text | LLM 추출 지시문 |
+| `category` | text null | "법률"·"재무" 등 분류(클라 필터용) |
+| `created_by` | uuid null | identity 컨텍스트 후속(D6) — v1 전역, 유저 필터 없음 |
+| `created_at` / `updated_at` | timestamptz | 목록은 `created_at` 정렬 |
+
+> v1은 추가/삭제/일괄가져오기만(update 범위 밖). 인증 부재(D6)로 전역 공유 — 같은 서버
+> 라이브러리에 모든 사용자가 기여. import/export(JSON)는 유지하되 `:import` API로 재배선.
 
 ### 2.4 Document  *(ingestion)*
 
@@ -517,6 +538,19 @@ create table document_column (            -- 엔티티 DocumentColumn ("column" 
 );
 create index on document_column (document_db_id, position);
 
+create table column_template (           -- 엔티티 ColumnTemplate (Column Library, 전역)
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  data_type text not null check (data_type in
+    ('text','number','date','boolean','list','single_select','multi_select')),
+  prompt text not null,
+  category text,
+  created_by uuid,                       -- nullable; identity 컨텍스트 후속(D6)
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+-- FK/position 없음(전역 라이브러리, created_at 정렬). document_db와 별개 애그리거트.
+
 create table document (
   id uuid primary key default gen_random_uuid(),
   document_db_id uuid not null references document_db(id) on delete cascade,
@@ -655,6 +689,18 @@ create table chat_source (
 | PATCH | `/columns/{colId}` | 이름/프롬프트/타입 수정 |
 | DELETE | `/columns/{colId}` | 삭제 |
 | POST | `/document-dbs/{id}/columns:reorder` | 순서 변경(`{order:[colId…]}`) |
+
+### 6.2a Column Library (전역 — ColumnTemplate)
+
+전역 재사용 컬럼 템플릿. DB에 종속되지 않는다(§2.3a). 템플릿 선택 시 클라이언트가 §6.2의
+컬럼 추가를 호출해 실제 컬럼을 만든다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/column-templates` | 템플릿 목록(전역, created_at 정렬) |
+| POST | `/column-templates` | 템플릿 추가(`{name,dataType,prompt,category?}`) |
+| DELETE | `/column-templates/{id}` | 삭제 |
+| POST | `/column-templates:import` | 일괄 가져오기(`{templates:[…]}`) — JSON import + localStorage 1회 마이그레이션 |
 
 ### 6.3 Document (DB 하위)
 

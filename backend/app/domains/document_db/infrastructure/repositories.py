@@ -10,18 +10,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.document_db.domain.models import (
     ColumnDataType,
+    ColumnTemplate,
+    ColumnTemplateDraft,
     DocumentColumn,
     DocumentDb,
     DocumentDbSummary,
 )
 from app.domains.document_db.domain.ports import (
+    ColumnTemplateNotFoundError,
+    ColumnTemplateRepository,
     DocumentColumnNotFoundError,
     DocumentColumnRepository,
     DocumentDbNotFoundError,
     DocumentDbRepository,
     InvalidColumnOrderError,
 )
-from app.domains.document_db.infrastructure.models import DocumentColumnOrm, DocumentDbOrm
+from app.domains.document_db.infrastructure.models import (
+    ColumnTemplateOrm,
+    DocumentColumnOrm,
+    DocumentDbOrm,
+)
 
 # Lightweight reference to the ingestion `document` table for counting, without
 # importing that context's ORM model (keeps document_db decoupled from ingestion).
@@ -58,6 +66,17 @@ def _to_column(orm: DocumentColumnOrm) -> DocumentColumn:
 
 def _coerce(value: Any) -> Any:
     return value.value if isinstance(value, ColumnDataType) else value
+
+
+def _to_template(orm: ColumnTemplateOrm) -> ColumnTemplate:
+    return ColumnTemplate(
+        id=orm.id,
+        name=orm.name,
+        data_type=ColumnDataType(orm.data_type),
+        prompt=orm.prompt,
+        category=orm.category,
+        created_at=orm.created_at,
+    )
 
 
 class SqlAlchemyDocumentDbRepository(DocumentDbRepository):
@@ -229,3 +248,47 @@ class SqlAlchemyDocumentColumnRepository(DocumentColumnRepository):
             by_id[column_id].position = position
         await self._session.flush()
         return await self.list_by_db(db_id)
+
+
+class SqlAlchemyColumnTemplateRepository(ColumnTemplateRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def list_all(self) -> list[ColumnTemplate]:
+        stmt = select(ColumnTemplateOrm).order_by(ColumnTemplateOrm.created_at)
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_to_template(orm) for orm in rows]
+
+    async def add(
+        self, *, name: str, data_type: ColumnDataType, prompt: str, category: str | None
+    ) -> ColumnTemplate:
+        orm = ColumnTemplateOrm(
+            name=name, data_type=data_type.value, prompt=prompt, category=category
+        )
+        self._session.add(orm)
+        await self._session.flush()
+        await self._session.refresh(orm)
+        return _to_template(orm)
+
+    async def add_many(self, drafts: list[ColumnTemplateDraft]) -> list[ColumnTemplate]:
+        orms = [
+            ColumnTemplateOrm(
+                name=d.name,
+                data_type=_coerce(d.data_type),
+                prompt=d.prompt,
+                category=d.category,
+            )
+            for d in drafts
+        ]
+        self._session.add_all(orms)
+        await self._session.flush()
+        for orm in orms:
+            await self._session.refresh(orm)
+        return [_to_template(orm) for orm in orms]
+
+    async def delete(self, template_id: UUID) -> None:
+        orm = await self._session.get(ColumnTemplateOrm, template_id)
+        if orm is None:
+            raise ColumnTemplateNotFoundError(str(template_id))
+        await self._session.delete(orm)
+        await self._session.flush()

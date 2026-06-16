@@ -59,3 +59,30 @@ class DocumentColumn:
     position: int
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass
+class ColumnTemplate:
+    """A reusable column definition (Column Library).
+
+    A firm-wide, un-parented column config: same fields as DocumentColumn minus
+    DB scoping/position. Selecting one creates a real DocumentColumn. Global in
+    v1 (no identity yet); see docs/domain-design.md §2.3a / §9 #19.
+    """
+
+    id: UUID
+    name: str
+    data_type: ColumnDataType
+    prompt: str
+    category: str | None
+    created_at: datetime
+
+
+@dataclass
+class ColumnTemplateDraft:
+    """An unsaved template (bulk add: JSON import + localStorage migration)."""
+
+    name: str
+    data_type: ColumnDataType
+    prompt: str
+    category: str | None = None

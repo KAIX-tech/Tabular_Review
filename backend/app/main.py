@@ -39,15 +39,21 @@ from app.domains.document_conversion.infrastructure.huggingface_ssl import (
     configure_huggingface_ssl,
 )
 from app.domains.document_conversion.interface.router import router as conversion_router
+from app.domains.document_db.application.column_template_service import ColumnTemplateService
 from app.domains.document_db.application.service import DocumentDbService
 from app.domains.document_db.domain.ports import (
+    ColumnTemplateNotFoundError,
     DocumentColumnNotFoundError,
     DocumentDbNotFoundError,
     InvalidColumnOrderError,
 )
 from app.domains.document_db.infrastructure.repositories import (
+    SqlAlchemyColumnTemplateRepository,
     SqlAlchemyDocumentColumnRepository,
     SqlAlchemyDocumentDbRepository,
+)
+from app.domains.document_db.interface.column_template_router import (
+    router as column_template_router,
 )
 from app.domains.document_db.interface.router import router as document_db_router
 from app.domains.embedding.domain.ports import EmbeddingPort
@@ -90,6 +96,10 @@ def _build_document_db_service(session: AsyncSession) -> DocumentDbService:
         SqlAlchemyDocumentDbRepository(session),
         SqlAlchemyDocumentColumnRepository(session),
     )
+
+
+def _build_column_template_service(session: AsyncSession) -> ColumnTemplateService:
+    return ColumnTemplateService(SqlAlchemyColumnTemplateRepository(session))
 
 
 def _build_chat_service(session: AsyncSession) -> ChatService:
@@ -296,6 +306,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.storage = _build_storage(settings)
     # Session-scoped services: store factories; dependencies bind a request session.
     app.state.document_db_service_factory = _build_document_db_service
+    app.state.column_template_service_factory = _build_column_template_service
     storage = app.state.storage
     app.state.ingestion_service_factory = lambda session: IngestionService(
         SqlAlchemyDocumentRepository(session), storage
@@ -335,12 +346,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(conversion_router)
     app.include_router(llm_router)
     app.include_router(document_db_router)
+    app.include_router(column_template_router)
     app.include_router(ingestion_router)
     app.include_router(extraction_router)
     app.include_router(chat_router)
 
     @app.exception_handler(DocumentDbNotFoundError)
     @app.exception_handler(DocumentColumnNotFoundError)
+    @app.exception_handler(ColumnTemplateNotFoundError)
     @app.exception_handler(DocumentNotFoundError)
     @app.exception_handler(CellNotFoundError)
     @app.exception_handler(ExtractionRunNotFoundError)

@@ -12,6 +12,7 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.domains.document_db.application.column_template_service import ColumnTemplateService
 from app.domains.document_db.application.service import DocumentDbService
 
 
@@ -20,3 +21,10 @@ def get_document_db_service(
     session: AsyncSession = Depends(get_session),
 ) -> DocumentDbService:
     return request.app.state.document_db_service_factory(session)
+
+
+def get_column_template_service(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> ColumnTemplateService:
+    return request.app.state.column_template_service_factory(session)
