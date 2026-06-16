@@ -75,20 +75,10 @@ export interface ExtractionResult {
   };
 }
 
-// Column template library types
-export interface ColumnTemplate {
-  id: string;
-  name: string;
-  type: ColumnType;
-  prompt: string;
-  category?: string; // e.g., "Legal", "Financial", "Dates"
-  createdAt: string;
-}
-
-export interface ColumnLibrary {
-  version: 1;
-  templates: ColumnTemplate[];
-}
+// NOTE: ColumnTemplate / ColumnLibrary moved to the `document-db` slice
+// (`document-db/model/types.ts`) when the Column Library became server-backed —
+// it lives next to its data hooks and the modal there (avoids a document-review
+// ↔ document-db import cycle). See domain-design §2.3a.
 
 // --- Extraction cells / runs (backend `extraction` context) ---
 // Domain source of truth for the API response shapes (validated in api/*.ts).

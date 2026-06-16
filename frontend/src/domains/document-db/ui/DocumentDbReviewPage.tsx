@@ -2,7 +2,6 @@
 
 import {
   AddColumnMenu,
-  ColumnLibrary,
   DataGrid,
   DocumentViewer,
   VerificationSidebar,
@@ -18,7 +17,6 @@ import {
 } from "@/domains/document-review";
 import type {
   Column,
-  ColumnTemplate,
   ColumnType,
   DocumentFile,
   DocumentStatus,
@@ -39,6 +37,7 @@ import {
 } from "@/shared/ui/icons";
 import { useParams } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import { useCreateColumnTemplate } from "../api/column-templates.hooks";
 import {
   useColumns,
   useCreateColumn,
@@ -46,6 +45,9 @@ import {
   useUpdateColumn,
 } from "../api/columns.hooks";
 import { useDocumentDb } from "../api/document-db.hooks";
+import { migrateLocalColumnLibrary } from "../lib/migrate-column-library";
+import type { ColumnTemplate } from "../model/types";
+import { ColumnLibrary } from "./ColumnLibrary";
 
 const MODELS = [{ id: ENV.llmModel, name: "GLM-5", description: "On-prem vLLM", icon: Brain }];
 
@@ -144,6 +146,13 @@ export const DocumentDbReviewPage: React.FC = () => {
   const createColumnMutation = useCreateColumn(dbId);
   const updateColumnMutation = useUpdateColumn(dbId);
   const deleteColumnMutation = useDeleteColumn(dbId);
+  const createTemplateMutation = useCreateColumnTemplate();
+
+  // One-time migration of any legacy localStorage Column Library to the server
+  // (run-once guarded inside; only meaningful with a real backend).
+  useEffect(() => {
+    if (realIngestion) void migrateLocalColumnLibrary().catch(() => {});
+  }, [realIngestion]);
 
   const columns: Column[] = realIngestion ? (realColumnsQuery.data ?? []) : localColumns;
   const results: ExtractionResult = realIngestion ? (cellsQuery.data ?? {}) : localResults;
@@ -813,6 +822,7 @@ export const DocumentDbReviewPage: React.FC = () => {
               editingColumnId ? columns.find((c) => c.id === editingColumnId) : undefined
             }
             onOpenLibrary={handleOpenLibrary}
+            onSaveTemplate={(t) => createTemplateMutation.mutate(t)}
           />
         )}
 

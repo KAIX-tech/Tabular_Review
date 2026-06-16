@@ -1,14 +1,14 @@
 "use client";
 
+import type { ColumnType } from "@/domains/document-review";
 import {
   Calendar,
   CheckSquare,
   Download,
-  FolderOpen,
   Hash,
   Library,
   List,
-  Plus,
+  Loader2,
   Search,
   Trash2,
   Type,
@@ -16,20 +16,14 @@ import {
   X,
 } from "@/shared/ui/icons";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  addTemplateToLibrary,
-  getTemplateCategories,
-  importColumnLibrary,
-  loadColumnLibrary,
-  removeTemplateFromLibrary,
-  saveColumnLibrary,
-} from "../lib/column-library";
-import type {
-  ColumnLibrary as ColumnLibraryType,
-  ColumnTemplate,
-  ColumnType,
-} from "../model/types";
+  useColumnTemplates,
+  useDeleteColumnTemplate,
+  useImportColumnTemplates,
+} from "../api/column-templates.hooks";
+import { exportTemplatesToFile, pickTemplatesFromFile } from "../lib/column-template-file";
+import type { ColumnTemplate } from "../model/types";
 
 interface ColumnLibraryProps {
   isOpen: boolean;
@@ -58,32 +52,27 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
   onClose,
   onSelectTemplate,
 }) => {
-  const [library, setLibrary] = useState<ColumnLibraryType>({ version: 1, templates: [] });
+  // Server-backed (global, firm-wide). Fetch only while the modal is open.
+  const { data: templates = [], isLoading } = useColumnTemplates();
+  const deleteTemplate = useDeleteColumnTemplate();
+  const importTemplates = useImportColumnTemplates();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
 
-  // Load library on mount
-  useEffect(() => {
-    if (isOpen) {
-      const loaded = loadColumnLibrary();
-      setLibrary(loaded);
-      setCategories(getTemplateCategories());
-    }
-  }, [isOpen]);
+  const categories = [
+    ...new Set(templates.map((t) => t.category).filter((c): c is string => !!c)),
+  ].sort();
 
   const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this template from your library?")) {
-      removeTemplateFromLibrary(templateId);
-      setLibrary(loadColumnLibrary());
-      setCategories(getTemplateCategories());
+      deleteTemplate.mutate(templateId);
     }
   };
 
   const handleExportLibrary = async () => {
     try {
-      await saveColumnLibrary(library, true);
+      await exportTemplatesToFile(templates);
     } catch (error) {
       console.error("Failed to export library:", error);
       alert("Failed to export library.");
@@ -92,10 +81,9 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
 
   const handleImportLibrary = async () => {
     try {
-      const imported = await importColumnLibrary();
-      if (imported) {
-        setLibrary(imported);
-        setCategories(getTemplateCategories());
+      const imported = await pickTemplatesFromFile();
+      if (imported && imported.length > 0) {
+        importTemplates.mutate(imported.map((t) => ({ ...t })));
       }
     } catch (error) {
       console.error("Failed to import library:", error);
@@ -103,7 +91,7 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
     }
   };
 
-  const filteredTemplates = library.templates.filter((template) => {
+  const filteredTemplates = templates.filter((template) => {
     const matchesSearch =
       searchQuery === "" ||
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -132,7 +120,7 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800">Column Library</h2>
-              <p className="text-sm text-slate-500">{library.templates.length} saved templates</p>
+              <p className="text-sm text-slate-500">{templates.length} saved templates</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -204,16 +192,20 @@ export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({
 
         {/* Template Grid */}
         <div className="flex-1 overflow-auto p-4">
-          {filteredTemplates.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : filteredTemplates.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="p-4 bg-slate-100 rounded-full mb-4">
                 <Library className="w-8 h-8 text-slate-400" />
               </div>
               <h3 className="text-lg font-semibold text-slate-700 mb-2">
-                {library.templates.length === 0 ? "No templates yet" : "No matching templates"}
+                {templates.length === 0 ? "No templates yet" : "No matching templates"}
               </h3>
               <p className="text-sm text-slate-500 max-w-sm">
-                {library.templates.length === 0
+                {templates.length === 0
                   ? "Save columns to your library when creating or editing them to reuse across projects."
                   : "Try adjusting your search or filter criteria."}
               </p>

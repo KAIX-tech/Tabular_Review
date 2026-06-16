@@ -19,8 +19,7 @@ import {
 import type React from "react";
 import { useState } from "react";
 import { generatePromptHelper } from "../api/extraction.api";
-import { addTemplateToLibrary } from "../lib/column-library";
-import { ColumnTemplate, type ColumnType } from "../model/types";
+import type { ColumnType } from "../model/types";
 
 const COLUMN_TYPES: { type: ColumnType; label: string; icon: React.FC<any> }[] = [
   { type: "text", label: "Text", icon: Type },
@@ -38,6 +37,14 @@ interface AddColumnMenuProps {
   modelId: string;
   initialData?: { name: string; type: ColumnType; prompt: string };
   onOpenLibrary?: () => void;
+  /** Persist the column to the shared Column Library (server). The parent owns
+   *  the mutation so this component stays free of document-db imports. */
+  onSaveTemplate?: (template: {
+    name: string;
+    type: ColumnType;
+    prompt: string;
+    category?: string;
+  }) => void;
 }
 
 export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
@@ -48,6 +55,7 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
   modelId,
   initialData,
   onOpenLibrary,
+  onSaveTemplate,
 }) => {
   const [name, setName] = useState(initialData?.name || "");
   const [type, setType] = useState<ColumnType>(initialData?.type || "text");
@@ -89,14 +97,9 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
 
   const handleSave = () => {
     if (name && prompt) {
-      // Save to library if checkbox is checked
-      if (saveToLibrary) {
-        addTemplateToLibrary({
-          name,
-          type,
-          prompt,
-          category: category || undefined,
-        });
+      // Save to the shared library if checked (parent persists via the server).
+      if (saveToLibrary && onSaveTemplate) {
+        onSaveTemplate({ name, type, prompt, category: category || undefined });
       }
       onSave({ name, type, prompt });
     }
@@ -104,7 +107,7 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose}></div>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         className="fixed bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50 w-[400px]"
         style={{ top, left }}
@@ -130,7 +133,6 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
               placeholder="e.g. Persons mentioned"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              autoFocus
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSave()}
             />
           </div>
@@ -151,7 +153,7 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
 
             {isTypeMenuOpen && (
               <>
-                <div className="fixed inset-0 z-20" onClick={() => setIsTypeMenuOpen(false)}></div>
+                <div className="fixed inset-0 z-20" onClick={() => setIsTypeMenuOpen(false)} />
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-100 shadow-xl rounded-lg overflow-hidden z-30 py-1 max-h-[200px] overflow-y-auto">
                   {COLUMN_TYPES.map((t) => (
                     <button
@@ -228,7 +230,7 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
         </div>
 
         <div
-          className={`px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between gap-3`}
+          className={"px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between gap-3"}
         >
           <div className="flex items-center gap-2">
             {initialData && onDelete && (
