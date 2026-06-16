@@ -36,18 +36,20 @@ export const columnTemplateResponseSchema = z.object({
   dataType: z.string(),
   prompt: z.string(),
   category: z.string().nullish(),
+  options: z.array(z.string()).nullish(),
   createdAt: z.string().datetime(),
 });
 export type ColumnTemplateResponse = z.infer<typeof columnTemplateResponseSchema>;
 
-// UI shape (grid uses `type`, the 5-type ColumnType). Mapped from the backend's
-// 7-type `dataType` in api/column-templates.api.ts (selects → "list").
+// UI shape (grid uses `type`, the ColumnType union). Mapped from the backend's
+// 7-type `dataType` in api/column-templates.api.ts (multi_select → "list").
 export interface ColumnTemplate {
   id: string;
   name: string;
   type: ColumnType;
   prompt: string;
   category?: string;
+  options?: string[];
   createdAt: string;
 }
 
@@ -56,6 +58,7 @@ export interface ColumnTemplateInput {
   type: ColumnType;
   prompt: string;
   category?: string;
+  options?: string[];
 }
 
 // Column Library JSON export/import envelope (backward-compatible with the

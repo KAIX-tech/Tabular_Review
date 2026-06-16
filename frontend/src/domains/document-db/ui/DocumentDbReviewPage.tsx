@@ -245,7 +245,12 @@ export const DocumentDbReviewPage: React.FC = () => {
     }
   };
 
-  const handleSaveColumn = (colDef: { name: string; type: ColumnType; prompt: string }) => {
+  const handleSaveColumn = (colDef: {
+    name: string;
+    type: ColumnType;
+    prompt: string;
+    options?: string[];
+  }) => {
     if (realIngestion) {
       if (editingColumnId) {
         updateColumnMutation.mutate({ columnId: editingColumnId, input: colDef });
@@ -265,6 +270,7 @@ export const DocumentDbReviewPage: React.FC = () => {
         name: colDef.name,
         type: colDef.type,
         prompt: colDef.prompt,
+        options: colDef.options,
         status: "idle",
         width: 250,
       };
@@ -326,6 +332,7 @@ export const DocumentDbReviewPage: React.FC = () => {
         name: template.name,
         type: template.type,
         prompt: template.prompt,
+        options: template.options,
       });
       setIsLibraryOpen(false);
       return;
@@ -335,6 +342,7 @@ export const DocumentDbReviewPage: React.FC = () => {
       name: template.name,
       type: template.type,
       prompt: template.prompt,
+      options: template.options,
       status: "idle",
       width: 250,
     };
@@ -520,6 +528,21 @@ export const DocumentDbReviewPage: React.FC = () => {
     setResults((prev) => ({
       ...prev,
       [docId]: { ...prev[docId], [colId]: { ...prev[docId][colId]!, status: "verified" } },
+    }));
+  };
+
+  // Correct a single_select cell's value via the constrained dropdown (edited).
+  const handleEditCellValue = (value: string) => {
+    if (!selectedCell) return;
+    const { docId, colId } = selectedCell;
+    if (realIngestion) {
+      const cellId = results[docId]?.[colId]?.id;
+      if (cellId) reviewMutation.mutate({ cellId, value, reviewStatus: "edited" });
+      return;
+    }
+    setResults((prev) => ({
+      ...prev,
+      [docId]: { ...prev[docId], [colId]: { ...prev[docId][colId]!, value, status: "edited" } },
     }));
   };
 
@@ -843,6 +866,7 @@ export const DocumentDbReviewPage: React.FC = () => {
                 column={sidebarData.column}
                 onClose={closeSidebar}
                 onVerify={handleVerifyCell}
+                onEditValue={handleEditCellValue}
                 isExpanded={isSidebarExpanded}
                 onExpand={setIsSidebarExpanded}
               />

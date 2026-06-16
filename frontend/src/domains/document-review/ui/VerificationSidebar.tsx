@@ -17,6 +17,8 @@ interface VerificationSidebarProps {
   column?: Column | null;
   onClose: () => void;
   onVerify?: () => void;
+  /** Correct a single_select cell's value via the constrained dropdown. */
+  onEditValue?: (value: string) => void;
   isExpanded: boolean;
   onExpand: (expanded: boolean) => void;
 }
@@ -47,6 +49,7 @@ export const VerificationSidebar: React.FC<VerificationSidebarProps> = ({
   document,
   column,
   onClose,
+  onEditValue,
   isExpanded,
   onExpand,
 }) => {
@@ -86,7 +89,7 @@ export const VerificationSidebar: React.FC<VerificationSidebarProps> = ({
         </header>
 
         {cell && column ? (
-          <div className="p-5 flex-1 overflow-y-auto">
+          <div className="p-5 flex-1 overflow-y-auto space-y-5">
             <CellDetailCard
               data={{
                 columnName: column.name,
@@ -100,6 +103,27 @@ export const VerificationSidebar: React.FC<VerificationSidebarProps> = ({
               }}
               onOpenSource={() => onExpand(true)}
             />
+            {/* single_select: constrained correction dropdown (controlled vocab). */}
+            {column.type === "single_select" && column.options && column.options.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="tr-label">분류 수정</span>
+                <select
+                  value={cell.value}
+                  onChange={(e) => onEditValue?.(e.target.value)}
+                  disabled={!onEditValue}
+                  className="w-full border border-border rounded-lg px-2.5 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {!column.options.includes(cell.value) && (
+                    <option value={cell.value}>{cell.value || "(미분류)"}</option>
+                  )}
+                  {column.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-6 flex flex-col items-center justify-center flex-1 text-center gap-3">

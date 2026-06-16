@@ -31,6 +31,7 @@ export {
   Calendar,
   Type,
   List,
+  ListChecks,
   CheckSquare,
   Sparkles,
   Play,

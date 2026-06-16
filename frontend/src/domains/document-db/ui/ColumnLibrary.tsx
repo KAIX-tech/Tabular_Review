@@ -8,6 +8,7 @@ import {
   Hash,
   Library,
   List,
+  ListChecks,
   Loader2,
   Search,
   Trash2,
@@ -37,6 +38,7 @@ const TYPE_ICONS: Record<ColumnType, React.FC<{ className?: string }>> = {
   date: Calendar,
   boolean: CheckSquare,
   list: List,
+  single_select: ListChecks,
 };
 
 const TYPE_COLORS: Record<ColumnType, string> = {
@@ -45,6 +47,7 @@ const TYPE_COLORS: Record<ColumnType, string> = {
   date: "bg-purple-100 text-purple-700",
   boolean: "bg-amber-100 text-amber-700",
   list: "bg-pink-100 text-pink-700",
+  single_select: "bg-cyan-100 text-cyan-700",
 };
 
 export const ColumnLibrary: React.FC<ColumnLibraryProps> = ({

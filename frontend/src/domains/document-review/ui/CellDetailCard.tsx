@@ -64,7 +64,7 @@ export const CellDetailCard: React.FC<{
       </div>
 
       <div>
-        {type === "list" || type === "boolean" ? (
+        {type === "list" || type === "boolean" || type === "single_select" ? (
           <CellValue
             type={type}
             value={data.value}
