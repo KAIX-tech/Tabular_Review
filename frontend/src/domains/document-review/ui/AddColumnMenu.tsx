@@ -116,6 +116,10 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
   };
 
   const options = type === "single_select" ? parseOptions(optionsText) : undefined;
+  // Non-blank lines before de-dup, so the count reconciles with what the user
+  // sees (excluded = duplicates silently dropped by parseOptions).
+  const nonBlankLines = optionsText.split("\n").filter((l) => l.trim()).length;
+  const duplicatesDropped = options ? nonBlankLines - options.length : 0;
   // single_select needs at least one option to be usable.
   const canSave = !!name && !!prompt && (type !== "single_select" || (options?.length ?? 0) > 0);
 
@@ -214,7 +218,9 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
                 onChange={(e) => setOptionsText(e.target.value)}
               />
               <p className="text-[11px] text-slate-400">
-                {options?.length ?? 0}개 선택지 — 추출 시 이 중 하나로 분류됩니다.
+                {options?.length ?? 0}개 선택지
+                {duplicatesDropped > 0 ? ` (중복 ${duplicatesDropped}개 제외)` : ""} — 추출 시 이
+                중 하나로 분류됩니다.
               </p>
             </div>
           )}
