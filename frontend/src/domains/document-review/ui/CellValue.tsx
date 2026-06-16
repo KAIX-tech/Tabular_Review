@@ -79,6 +79,19 @@ export const CellValue: React.FC<CellValueProps> = ({ type, value, valueJson, wr
   const baseText = `text-sm ${selected ? "font-medium" : ""}`;
   const clamp = wrap ? "whitespace-pre-wrap break-words" : "truncate max-w-[180px]";
 
+  // single_select: one chosen value from a controlled set — a single soft chip.
+  if (type === "single_select") {
+    if (!value) return <span className={`${baseText} ${clamp} text-ink-3`}>-</span>;
+    return (
+      <span
+        className="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-md text-xs font-medium bg-cyan-50 text-cyan-700"
+        title={value}
+      >
+        <span className={wrap ? "break-words" : "truncate"}>{value}</span>
+      </span>
+    );
+  }
+
   if (type === "list") {
     const items = listItems(value, valueJson);
     // Single (or no) item — plain text, no list chrome.

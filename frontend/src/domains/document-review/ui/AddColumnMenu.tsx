@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Library,
   List,
+  ListChecks,
   Loader2,
   Save,
   Sparkles,
@@ -27,24 +28,42 @@ const COLUMN_TYPES: { type: ColumnType; label: string; icon: React.FC<any> }[] =
   { type: "date", label: "Date", icon: Calendar },
   { type: "boolean", label: "Yes/No", icon: CheckSquare },
   { type: "list", label: "List", icon: List },
+  { type: "single_select", label: "Single Select", icon: ListChecks },
 ];
+
+export interface ColumnDraft {
+  name: string;
+  type: ColumnType;
+  prompt: string;
+  /** single_select: controlled option set (one per line in the editor). */
+  options?: string[];
+}
+
+/** Parse the options textarea (one per line) → trimmed, de-duped, non-empty. */
+function parseOptions(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    const v = line.trim();
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
 
 interface AddColumnMenuProps {
   triggerRect: DOMRect;
   onClose: () => void;
-  onSave: (col: { name: string; type: ColumnType; prompt: string }) => void;
+  onSave: (col: ColumnDraft) => void;
   onDelete?: () => void;
   modelId: string;
-  initialData?: { name: string; type: ColumnType; prompt: string };
+  initialData?: ColumnDraft;
   onOpenLibrary?: () => void;
   /** Persist the column to the shared Column Library (server). The parent owns
    *  the mutation so this component stays free of document-db imports. */
-  onSaveTemplate?: (template: {
-    name: string;
-    type: ColumnType;
-    prompt: string;
-    category?: string;
-  }) => void;
+  onSaveTemplate?: (template: ColumnDraft & { category?: string }) => void;
 }
 
 export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
@@ -60,6 +79,7 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
   const [name, setName] = useState(initialData?.name || "");
   const [type, setType] = useState<ColumnType>(initialData?.type || "text");
   const [prompt, setPrompt] = useState(initialData?.prompt || "");
+  const [optionsText, setOptionsText] = useState((initialData?.options ?? []).join("\n"));
   const [category, setCategory] = useState("");
   const [saveToLibrary, setSaveToLibrary] = useState(false);
 
@@ -95,13 +115,17 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
     }
   };
 
+  const options = type === "single_select" ? parseOptions(optionsText) : undefined;
+  // single_select needs at least one option to be usable.
+  const canSave = !!name && !!prompt && (type !== "single_select" || (options?.length ?? 0) > 0);
+
   const handleSave = () => {
-    if (name && prompt) {
+    if (canSave) {
       // Save to the shared library if checked (parent persists via the server).
       if (saveToLibrary && onSaveTemplate) {
-        onSaveTemplate({ name, type, prompt, category: category || undefined });
+        onSaveTemplate({ name, type, prompt, options, category: category || undefined });
       }
-      onSave({ name, type, prompt });
+      onSave({ name, type, prompt, options });
     }
   };
 
@@ -173,6 +197,27 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
               </>
             )}
           </div>
+
+          {/* Options editor (single_select) — one option per line */}
+          {type === "single_select" && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-slate-500">
+                <ListChecks className="w-3.5 h-3.5" />
+                <label className="text-xs font-semibold">
+                  Options <span className="text-slate-400 font-normal">(한 줄에 하나)</span>
+                </label>
+              </div>
+              <textarea
+                className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none min-h-[120px] resize-y transition-all font-mono text-[12px]"
+                placeholder={"Manufacturing > Automotive > Auto Parts\nFinance > Banking\nOthers"}
+                value={optionsText}
+                onChange={(e) => setOptionsText(e.target.value)}
+              />
+              <p className="text-[11px] text-slate-400">
+                {options?.length ?? 0}개 선택지 — 추출 시 이 중 하나로 분류됩니다.
+              </p>
+            </div>
+          )}
 
           {/* Prompt Textarea */}
           <div className="space-y-1.5">
@@ -254,7 +299,7 @@ export const AddColumnMenu: React.FC<AddColumnMenuProps> = ({
           </div>
           <button
             onClick={handleSave}
-            disabled={!name || !prompt}
+            disabled={!canSave}
             className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium text-xs shadow-lg shadow-slate-900/10 transition-all active:scale-95"
           >
             {initialData ? "Update Column" : "Create Column"}

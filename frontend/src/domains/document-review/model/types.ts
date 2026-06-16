@@ -42,13 +42,15 @@ export const PROCESSING_STATUSES: ReadonlySet<DocumentStatus> = new Set<Document
   "chunking",
 ]);
 
-export type ColumnType = "text" | "number" | "date" | "boolean" | "list";
+export type ColumnType = "text" | "number" | "date" | "boolean" | "list" | "single_select";
 
 export interface Column {
   id: string;
   name: string;
   type: ColumnType;
   prompt: string;
+  /** single_select: the controlled option set (taxonomy). */
+  options?: string[];
   status: "idle" | "extracting" | "completed" | "error";
   width?: number;
 }

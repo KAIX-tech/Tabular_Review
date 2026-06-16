@@ -9,11 +9,18 @@ import {
   columnTemplateResponseSchema,
 } from "../model/types";
 
-const GRID_TYPES = new Set<ColumnType>(["text", "number", "date", "boolean", "list"]);
+const GRID_TYPES = new Set<ColumnType>([
+  "text",
+  "number",
+  "date",
+  "boolean",
+  "list",
+  "single_select",
+]);
 
 function toTemplate(r: ColumnTemplateResponse): ColumnTemplate {
-  // Backend has extra select types; the grid renders them as "list" (same map
-  // as columns.api.ts `toColumn`).
+  // Remaining backend-only types (multi_select) render as "list" (same map as
+  // columns.api.ts `toColumn`).
   const type = (GRID_TYPES.has(r.dataType as ColumnType) ? r.dataType : "list") as ColumnType;
   return {
     id: r.id,
@@ -21,6 +28,7 @@ function toTemplate(r: ColumnTemplateResponse): ColumnTemplate {
     type,
     prompt: r.prompt,
     category: r.category ?? undefined,
+    options: r.options ?? undefined,
     createdAt: r.createdAt,
   };
 }
@@ -36,6 +44,7 @@ export async function createColumnTemplate(input: ColumnTemplateInput): Promise<
     dataType: input.type,
     prompt: input.prompt,
     category: input.category ?? null,
+    options: input.options ?? null,
   });
   return toTemplate(columnTemplateResponseSchema.parse(data));
 }
@@ -54,6 +63,7 @@ export async function importColumnTemplates(
       dataType: t.type,
       prompt: t.prompt,
       category: t.category ?? null,
+      options: t.options ?? null,
     })),
   });
   return z.array(columnTemplateResponseSchema).parse(data).map(toTemplate);
