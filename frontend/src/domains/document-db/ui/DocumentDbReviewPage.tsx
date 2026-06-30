@@ -811,7 +811,7 @@ export const DocumentDbReviewPage: React.FC = () => {
         )}
 
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden p-6">
-          <div className="flex-1 min-h-0 rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-xl border border-border bg-surface shadow-soft overflow-hidden flex flex-col">
             <DataGrid
               documents={gridDocuments}
               columns={columns}

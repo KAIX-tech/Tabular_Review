@@ -122,6 +122,11 @@ def _build_chat_model(settings: Settings):
         model=model,
         timeout=timeout,
         temperature=0,
+        # GLM requests are non-streaming (stream=false): the model node uses a
+        # single completion call, not token streaming. Tool-call step events and
+        # the final answer still flow via LangGraph's "updates" stream; the UI
+        # block-reveals the final answer. (On-prem GLM streaming is disabled.)
+        disable_streaming=True,
     )
 
 
